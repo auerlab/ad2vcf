@@ -77,6 +77,11 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    previous_sam_rname[SAM_RNAME_MAX + 1] = "",
 		    *ext;
     const char      *vcf_filename = argv[1];
+    /*
+     *  Linux default stack size is 8 MiB and VCF_INFO_MAX_CHARS has to be
+     *  large to accommodate dpGap BCFs.  Make this static to avoid stack
+     *  overflow (manifests as a seg fault on Linux).
+     */
     static vcf_duplicate_call_t    vcf_duplicate_calls;
     
     xz = ((ext = strstr(vcf_filename,".xz")) != NULL) && (ext[3] == '\0');
