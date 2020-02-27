@@ -59,7 +59,6 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 {
     FILE            *vcf_stream,
 		    *allele_stream;
-    vcf_duplicate_call_t    vcf_duplicate_calls;
     sam_alignment_t sam_alignment;
     int             more_alignments,
 		    allele,
@@ -78,6 +77,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    previous_sam_rname[SAM_RNAME_MAX + 1] = "",
 		    *ext;
     const char      *vcf_filename = argv[1];
+    static vcf_duplicate_call_t    vcf_duplicate_calls;
     
     xz = ((ext = strstr(vcf_filename,".xz")) != NULL) && (ext[3] == '\0');
     if ( xz )
