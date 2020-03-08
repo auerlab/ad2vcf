@@ -333,6 +333,7 @@ int     sam_read_alignment(const char *argv[],
     char    pos_str[SAM_POS_MAX_DIGITS + 1],
 	    *end;
     size_t  len;
+    static size_t   previous_pos = 0;
     
     if ( tsv_read_field(argv, sam_stream, sam_alignment->qname, SAM_QNAME_MAX, &len) != EOF )
     {
@@ -349,8 +350,12 @@ int     sam_read_alignment(const char *argv[],
 	{
 	    fprintf(stderr, "%s: Invalid alignment position: %s\n",
 		    argv[0], pos_str);
+	    fprintf(stderr, "qname = %s rname = %s\n",
+		    sam_alignment->qname, sam_alignment->rname);
+	    fprintf(stderr, "previous_pos = %zu\n", previous_pos);
 	    exit(EX_DATAERR);
 	}
+	previous_pos = sam_alignment->pos;
 	
 	// MAPQ
 	tsv_skip_field(argv, sam_stream);
@@ -372,7 +377,10 @@ int     sam_read_alignment(const char *argv[],
 	    &sam_alignment->seq_len);
 	
 	// QUAL
-	tsv_skip_field(argv, sam_stream);
+	// Some SRA CRAMs have 11 fields, most have 12
+	if ( tsv_skip_field(argv, sam_stream) == '\t' )
+	    while ( getc(sam_stream) != '\n' )
+		;
 	return 1;
     }
     else
