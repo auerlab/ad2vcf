@@ -171,7 +171,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	// fprintf(stderr, "VCF call %s %zu\n", vcf_chromosome, vcf_pos);
 	vcf_calls_read += vcf_duplicate_calls.count;
 	if ( vcf_duplicate_calls.count > 1 )
-	    fprintf(stderr, "Read %zu duplicate calls at chr %s pos %zu.\n",
+	    fprintf(stderr, "INFO: %zu calls at chr %s pos %zu.\n",
 		    vcf_duplicate_calls.count, vcf_chromosome, vcf_pos);
 
 	// Skip remaining alignments for previous chromosome after VCF
