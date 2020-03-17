@@ -62,7 +62,6 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     sam_alignment_t sam_alignment;
     int             more_alignments,
 		    allele,
-		    new_calls = 0,
 		    c;
     bool            xz = false;
     size_t          vcf_pos = 0,
@@ -82,7 +81,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
      *  large to accommodate dpGap BCFs.  Make this static to avoid stack
      *  overflow (manifests as a seg fault on Linux).
      */
-    static vcf_duplicate_call_t    vcf_duplicate_calls;
+    static vcf_calls_for_position_t    vcf_calls_for_position;
     
     xz = ((ext = strstr(vcf_filename,".xz")) != NULL) && (ext[3] == '\0');
     if ( xz )
@@ -132,14 +131,18 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     // Prime loop by reading first SAM alignment
     more_alignments = sam_read_alignment(argv, sam_stream, &sam_alignment);
     
-    // Check each SAM alignment against all ALT alleles.
+    /*
+     *  Check each SAM alignment against all ALT alleles.  There may be
+     *  consecutive VCF calls with the same position, so we read in all of
+     *  them at once and match each SAM read to every one.
+     */
     while ( more_alignments &&
-	    (new_calls = vcf_read_duplicate_calls(argv, vcf_stream,
-					 &vcf_duplicate_calls) > 0) )
+	    ((vcf_read_calls_for_position(argv, vcf_stream,
+				      &vcf_calls_for_position)) > 0) )
     {
 	// All the same
-	vcf_pos = vcf_duplicate_calls.call[0].pos;
-	vcf_chromosome = vcf_duplicate_calls.call[0].chromosome;
+	vcf_pos = vcf_calls_for_position.call[0].pos;
+	vcf_chromosome = vcf_calls_for_position.call[0].chromosome;
 	
 	/*
 	 *  VCF input must be sorted by chromosome, then position.
@@ -169,10 +172,10 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	
 	// Debug
 	// fprintf(stderr, "VCF call %s %zu\n", vcf_chromosome, vcf_pos);
-	vcf_calls_read += vcf_duplicate_calls.count;
-	if ( vcf_duplicate_calls.count > 1 )
-	    fprintf(stderr, "INFO: %zu calls at chr %s pos %zu.\n",
-		    vcf_duplicate_calls.count, vcf_chromosome, vcf_pos);
+	vcf_calls_read += vcf_calls_for_position.count;
+	if ( vcf_calls_for_position.count > 1 )
+	    fprintf(stderr, "INFO: %zu calls at chromosome %s pos %zu.\n",
+		    vcf_calls_for_position.count, vcf_chromosome, vcf_pos);
 
 	// Skip remaining alignments for previous chromosome after VCF
 	// chromosome changes
@@ -231,14 +234,14 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		putc(allele, allele_stream);
 #endif
 		
-		for (c = 0; c < vcf_duplicate_calls.count; ++c)
+		for (c = 0; c < vcf_calls_for_position.count; ++c)
 		{
-		    if ( allele == *vcf_duplicate_calls.call[c].ref )
-			++vcf_duplicate_calls.call[c].ref_count;
-		    else if ( allele == *vcf_duplicate_calls.call[c].alt )
-			++vcf_duplicate_calls.call[c].alt_count;
+		    if ( allele == *vcf_calls_for_position.call[c].ref )
+			++vcf_calls_for_position.call[c].ref_count;
+		    else if ( allele == *vcf_calls_for_position.call[c].alt )
+			++vcf_calls_for_position.call[c].alt_count;
 		    else
-			++vcf_duplicate_calls.call[c].other_count;
+			++vcf_calls_for_position.call[c].other_count;
 		}
 	    }
 	    
@@ -278,28 +281,28 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	*/
 #endif
 	
-	for (c = 0; c < vcf_duplicate_calls.count; ++c)
+	for (c = 0; c < vcf_calls_for_position.count; ++c)
 	{
 	    // FIXME: Use vcf_write_call()
 	    // Haplohseq expects DP to be sum of AD values (P. Auer)
 	    fprintf(allele_stream,
 		    "%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u:%u\n",
 		    vcf_chromosome, vcf_pos,
-		    vcf_duplicate_calls.call[c].ref,
-		    vcf_duplicate_calls.call[c].alt,
-		    vcf_duplicate_calls.call[c].format,
-		    vcf_duplicate_calls.call[c].samples[0],
-		    vcf_duplicate_calls.call[c].ref_count,
-		    vcf_duplicate_calls.call[c].alt_count,
-		    vcf_duplicate_calls.call[c].ref_count +
-		    vcf_duplicate_calls.call[c].alt_count);
-		    // vcf_duplicate_calls.call[c].other_count);
+		    vcf_calls_for_position.call[c].ref,
+		    vcf_calls_for_position.call[c].alt,
+		    vcf_calls_for_position.call[c].format,
+		    vcf_calls_for_position.call[c].samples[0],
+		    vcf_calls_for_position.call[c].ref_count,
+		    vcf_calls_for_position.call[c].alt_count,
+		    vcf_calls_for_position.call[c].ref_count +
+		    vcf_calls_for_position.call[c].alt_count);
+		    // vcf_calls_for_position.call[c].other_count);
 	}
     }
     
     // Debug
-    fprintf(stderr, "Loop terminated with more_alignments = %d, new calls = %d\n",
-	    more_alignments, new_calls);
+    fprintf(stderr, "Loop terminated with more_alignments = %d, new calls = %zu\n",
+	    more_alignments, vcf_calls_for_position.count);
     fprintf(stderr, "===\nrname = %s pos=%zu len=%zu %s\n",
 	    sam_alignment.rname, sam_alignment.pos,
 	    sam_alignment.seq_len, sam_alignment.seq);
