@@ -140,9 +140,14 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    ((vcf_read_calls_for_position(argv, vcf_stream,
 				      &vcf_calls_for_position)) > 0) )
     {
-	// All the same
+	// chromosome and position are the same for all calls
 	vcf_pos = vcf_calls_for_position.call[0].pos;
 	vcf_chromosome = vcf_calls_for_position.call[0].chromosome;
+	// FIXME: Can this be done before the loop?
+	// This if check is a tiny performance hit
+	if ( *previous_vcf_chromosome == '\0' )
+	    strlcpy(previous_vcf_chromosome, vcf_chromosome,
+		    VCF_CHROMOSOME_MAX_CHARS);
 	
 	/*
 	 *  VCF input must be sorted by chromosome, then position.
@@ -158,8 +163,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    }
 	    else
 	    {
-		fprintf(stderr, "Finished chromosome, %zu calls processed.\n",
-			vcf_calls_read);
+		fprintf(stderr, "INFO: Finished chromosome %s: %zu calls processed.\n",
+			previous_vcf_chromosome, vcf_calls_read);
 		// Begin next chromosome, reset pos
 		strlcpy(previous_vcf_chromosome, vcf_chromosome,
 			VCF_CHROMOSOME_MAX_CHARS);
@@ -299,6 +304,9 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    // vcf_calls_for_position.call[c].other_count);
 	}
     }
+    
+    fprintf(stderr, "INFO: Finished chromosome %s: %zu calls processed.\n",
+	    vcf_chromosome, vcf_calls_read);
     
     // Debug
     fprintf(stderr, "Loop terminated with more_alignments = %d, new calls = %zu\n",
