@@ -346,16 +346,16 @@ int     sam_read_alignment(const char *argv[],
     size_t  len;
     static size_t   previous_pos = 0;
     
-    if ( tsv_read_field(argv, sam_stream, sam_alignment->qname, SAM_QNAME_MAX, &len) != EOF )
+    if ( tsv_read_field(sam_stream, sam_alignment->qname, SAM_QNAME_MAX, &len) != EOF )
     {
 	// Flag
-	tsv_skip_field(argv, sam_stream);
+	tsv_skip_field(sam_stream);
 	
 	// RNAME
-	tsv_read_field(argv, sam_stream, sam_alignment->rname, SAM_RNAME_MAX, &len);
+	tsv_read_field(sam_stream, sam_alignment->rname, SAM_RNAME_MAX, &len);
 	
 	// POS
-	tsv_read_field(argv, sam_stream, pos_str, SAM_POS_MAX_DIGITS, &len);
+	tsv_read_field(sam_stream, pos_str, SAM_POS_MAX_DIGITS, &len);
 	sam_alignment->pos = strtoul(pos_str, &end, 10);
 	if ( *end != '\0' )
 	{
@@ -369,27 +369,27 @@ int     sam_read_alignment(const char *argv[],
 	previous_pos = sam_alignment->pos;
 	
 	// MAPQ
-	tsv_skip_field(argv, sam_stream);
+	tsv_skip_field(sam_stream);
 	
 	// CIGAR
-	tsv_skip_field(argv, sam_stream);
+	tsv_skip_field(sam_stream);
 	
 	// RNEXT
-	tsv_skip_field(argv, sam_stream);
+	tsv_skip_field(sam_stream);
 	
 	// PNEXT
-	tsv_skip_field(argv, sam_stream);
+	tsv_skip_field(sam_stream);
 	
 	// TLEN
-	tsv_skip_field(argv, sam_stream);
+	tsv_skip_field(sam_stream);
 	
 	// SEQ
-	tsv_read_field(argv, sam_stream, sam_alignment->seq, SAM_SEQ_MAX,
+	tsv_read_field(sam_stream, sam_alignment->seq, SAM_SEQ_MAX,
 	    &sam_alignment->seq_len);
 	
 	// QUAL
 	// Some SRA CRAMs have 11 fields, most have 12
-	if ( tsv_skip_field(argv, sam_stream) == '\t' )
+	if ( tsv_skip_field(sam_stream) == '\t' )
 	    while ( getc(sam_stream) != '\n' )
 		;
 	return 1;
