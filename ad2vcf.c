@@ -137,7 +137,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
      *  them at once and match each SAM read to every one.
      */
     while ( more_alignments &&
-	    ((vcf_read_calls_for_position(argv, vcf_stream,
+	    ((vcf_read_calls_for_position(vcf_stream,
 				      &vcf_calls_for_position)) > 0) )
     {
 	// chromosome and position are the same for all calls
