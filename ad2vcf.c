@@ -241,12 +241,12 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		
 		for (c = 0; c < vcf_calls_for_position.count; ++c)
 		{
-		    if ( allele == *vcf_calls_for_position.call[c].ref )
-			++vcf_calls_for_position.call[c].ref_count;
-		    else if ( allele == *vcf_calls_for_position.call[c].alt )
-			++vcf_calls_for_position.call[c].alt_count;
+		    if ( allele == *VCF_REF(&vcf_calls_for_position.call[c]) )
+			++VCF_REF_COUNT(&vcf_calls_for_position.call[c]);
+		    else if ( allele == *VCF_ALT(&vcf_calls_for_position.call[c]) )
+			++VCF_ALT_COUNT(&vcf_calls_for_position.call[c]);
 		    else
-			++vcf_calls_for_position.call[c].other_count;
+			++VCF_OTHER_COUNT(&vcf_calls_for_position.call[c]);
 		}
 	    }
 	    
@@ -293,14 +293,14 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    fprintf(allele_stream,
 		    "%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u:%u\n",
 		    vcf_chromosome, vcf_pos,
-		    vcf_calls_for_position.call[c].ref,
-		    vcf_calls_for_position.call[c].alt,
-		    vcf_calls_for_position.call[c].format,
-		    vcf_calls_for_position.call[c].samples[0],
-		    vcf_calls_for_position.call[c].ref_count,
-		    vcf_calls_for_position.call[c].alt_count,
-		    vcf_calls_for_position.call[c].ref_count +
-		    vcf_calls_for_position.call[c].alt_count);
+		    VCF_REF(&vcf_calls_for_position.call[c]),
+		    VCF_ALT(&vcf_calls_for_position.call[c]),
+		    VCF_FORMAT(&vcf_calls_for_position.call[c]),
+		    VCF_SAMPLE(&vcf_calls_for_position.call[c], 0),
+		    VCF_REF_COUNT(&vcf_calls_for_position.call[c]),
+		    VCF_ALT_COUNT(&vcf_calls_for_position.call[c]),
+		    VCF_REF_COUNT(&vcf_calls_for_position.call[c]) +
+			VCF_ALT_COUNT(&vcf_calls_for_position.call[c]));
 		    // vcf_calls_for_position.call[c].other_count);
 	}
     }
