@@ -21,9 +21,9 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <errno.h>
-#include "tsvio.h"
-#include "vcfio.h"
-#include "samio.h"
+#include <vcfio.h>
+#include <samio.h>
+#include <biostring.h>
 #include "ad2vcf.h"
 
 int     main(int argc, const char *argv[])
@@ -185,12 +185,12 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	// Skip remaining alignments for previous chromosome after VCF
 	// chromosome changes
 	while ( more_alignments &&
-		(chromosome_name_cmp(sam_alignment.rname, vcf_chromosome) < 0) )
+		(chromosome_name_cmp(SAM_RNAME(&sam_alignment), vcf_chromosome) < 0) )
 	{
 	    // Debug
 	    /*
 	    fprintf(stderr, "Skipping %s %zu on the way to VCF %s %zu\n",
-		    sam_alignment.rname, sam_alignment.pos,
+		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 		    vcf_chromosome, vcf_pos);
 	    */
 	    more_alignments =
@@ -215,8 +215,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	 *  comparison is false.
 	 */
 	while ( more_alignments &&
-		(sam_alignment.pos <= vcf_pos) &&
-		(strcmp(sam_alignment.rname, vcf_chromosome) == 0) )
+		(SAM_POS(&sam_alignment) <= vcf_pos) &&
+		(strcmp(SAM_RNAME(&sam_alignment), vcf_chromosome) == 0) )
 	{
 	    /*
 	     *  We know at this point that the VCF call position is downstream
@@ -224,16 +224,16 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	     *  upstream of the end?  If so, record the exact position and
 	     *  allele.
 	     */
-	    if ( vcf_pos < sam_alignment.pos + sam_alignment.seq_len )
+	    if ( vcf_pos < SAM_POS(&sam_alignment) + SAM_SEQ_LEN(&sam_alignment) )
 	    {
-		allele = sam_alignment.seq[vcf_pos - sam_alignment.pos];
+		allele = SAM_SEQ(&sam_alignment)[vcf_pos - SAM_POS(&sam_alignment)];
 #ifdef DEBUG
 		fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
-			sam_alignment.rname, sam_alignment.pos,
-			sam_alignment.seq_len, sam_alignment.seq);
+			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+			SAM_SEQ(&sam_alignment)_len, SAM_SEQ(&sam_alignment));
 		fprintf(stderr, "Found allele %c (%d) for call pos %zu on %s aligned seq starting at %zu.\n",
 			allele, allele, vcf_pos, vcf_chromosome,
-			sam_alignment.pos);
+			SAM_POS(&sam_alignment));
 		fprintf(stderr, "Calls: %zu  Alignments: %zu\n",
 			vcf_calls_read, alignments_read);
 		putc(allele, allele_stream);
@@ -258,9 +258,9 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	     *  If current position < previous and chromosome is the same,
 	     *  then the SAM input is not sorted.
 	     */
-	    if ( sam_alignment.pos < previous_alignment_pos )
+	    if ( SAM_POS(&sam_alignment) < previous_alignment_pos )
 	    {
-		if ( strcmp(sam_alignment.rname, previous_sam_rname) == 0 )
+		if ( strcmp(SAM_RNAME(&sam_alignment), previous_sam_rname) == 0 )
 		{
 		    fprintf(stderr, "%s: SAM input is not sorted.\n", argv[0]);
 		    exit(EX_DATAERR);
@@ -268,12 +268,12 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		else
 		{
 		    // Begin next chromosome, reset pos
-		    strlcpy(previous_sam_rname, sam_alignment.rname, SAM_RNAME_MAX);
-		    previous_alignment_pos = sam_alignment.pos;
+		    strlcpy(previous_sam_rname, SAM_RNAME(&sam_alignment), SAM_RNAME_MAX);
+		    previous_alignment_pos = SAM_POS(&sam_alignment);
 		}
 	    }
 	    else
-		previous_alignment_pos = sam_alignment.pos;
+		previous_alignment_pos = SAM_POS(&sam_alignment);
 	}
 
 #ifdef DEBUG
@@ -282,7 +282,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	fprintf(stderr, "===\nOut of alignments for VCF %s %zu\n",
 		vcf_chromosome, vcf_pos);
 	fprintf(stderr, "rname = %s pos=%zu\n",
-		sam_alignment.rname, sam_alignment.pos);
+		SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment));
 	*/
 #endif
 	
@@ -312,8 +312,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     fprintf(stderr, "Loop terminated with more_alignments = %d, new calls = %zu\n",
 	    more_alignments, vcf_calls_for_position.count);
     fprintf(stderr, "===\nrname = %s pos=%zu len=%zu %s\n",
-	    sam_alignment.rname, sam_alignment.pos,
-	    sam_alignment.seq_len, sam_alignment.seq);
+	    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+	    SAM_SEQ_LEN(&sam_alignment), SAM_SEQ(&sam_alignment));
     fprintf(stderr, "vcf_pos = %zu, vcf_chromosome = %s\n",
 	    vcf_pos, vcf_chromosome);
     
@@ -322,78 +322,4 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     else
 	fclose(vcf_stream);
     return EX_OK;
-}
-
-
-/***************************************************************************
- *  Description:
- *  
- *  Arguments:
- *
- *  Returns:
- *
- *  History: 
- *  Date        Name        Modification
- *  2019-12-09  Jason Bacon Begin
- ***************************************************************************/
-
-int     sam_read_alignment(const char *argv[],
-			   FILE *sam_stream, sam_alignment_t *sam_alignment)
-
-{
-    char    pos_str[SAM_POS_MAX_DIGITS + 1],
-	    *end;
-    size_t  len;
-    static size_t   previous_pos = 0;
-    
-    if ( tsv_read_field(sam_stream, sam_alignment->qname, SAM_QNAME_MAX, &len) != EOF )
-    {
-	// Flag
-	tsv_skip_field(sam_stream);
-	
-	// RNAME
-	tsv_read_field(sam_stream, sam_alignment->rname, SAM_RNAME_MAX, &len);
-	
-	// POS
-	tsv_read_field(sam_stream, pos_str, SAM_POS_MAX_DIGITS, &len);
-	sam_alignment->pos = strtoul(pos_str, &end, 10);
-	if ( *end != '\0' )
-	{
-	    fprintf(stderr, "%s: Invalid alignment position: %s\n",
-		    argv[0], pos_str);
-	    fprintf(stderr, "qname = %s rname = %s\n",
-		    sam_alignment->qname, sam_alignment->rname);
-	    fprintf(stderr, "previous_pos = %zu\n", previous_pos);
-	    exit(EX_DATAERR);
-	}
-	previous_pos = sam_alignment->pos;
-	
-	// MAPQ
-	tsv_skip_field(sam_stream);
-	
-	// CIGAR
-	tsv_skip_field(sam_stream);
-	
-	// RNEXT
-	tsv_skip_field(sam_stream);
-	
-	// PNEXT
-	tsv_skip_field(sam_stream);
-	
-	// TLEN
-	tsv_skip_field(sam_stream);
-	
-	// SEQ
-	tsv_read_field(sam_stream, sam_alignment->seq, SAM_SEQ_MAX,
-	    &sam_alignment->seq_len);
-	
-	// QUAL
-	// Some SRA CRAMs have 11 fields, most have 12
-	if ( tsv_skip_field(sam_stream) == '\t' )
-	    while ( getc(sam_stream) != '\n' )
-		;
-	return 1;
-    }
-    else
-	return 0;
 }

@@ -1,5 +1,5 @@
-ad2vcf.o: ad2vcf.c ../local/include/tsvio.h \
-  ../local/include/tsvio-protos.h ../local/include/vcfio.h \
-  ../local/include/vcfio-protos.h samio.h ad2vcf.h ad2vcf-protos.h
+ad2vcf.o: ad2vcf.c ../local/include/vcfio.h ../local/include/tsvio.h \
+  ../local/include/samio.h ../local/include/biostring.h ad2vcf.h \
+  ad2vcf-protos.h
 	${CC} -c ${CFLAGS} ad2vcf.c
 
