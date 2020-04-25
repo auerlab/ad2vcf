@@ -1,0 +1,17 @@
+FreeBSD barracuda.uits  bacon ~/Data/TOPMed/ad2vcf 1000: time samtools view -@ 2 --input-fmt-option required_fields=0x208 ../SRR6990379/NWD102903.b38.irc.v1.cram > /dev/null
+1402.054u 27.796s 21:58.57 108.4%	532+177k 195366+0io 0pf+0w
+
+time samtools view -@ 2 --input-fmt-option required_fields=0x208 \
+        ../SRR6990379/NWD102903.b38.irc.v1.cram \
+    | ./ad2vcf ../VCF/10-samples/combined.NWD102903.vcf.xz
+
+...
+Read 2 duplicate calls at chr chr21 pos 46694161.
+Finished chromosome, 2615874 calls processed.
+Loop terminated with more_alignments = 1, nc = 0
+===
+chr22 pos=50804141 len=151 TATTTTTGGATTGTAAGGTGAGACTTGTTTAGCTTTGGAAAAAAATGACCAACTTGTAATAGGGGAGGAAAAATAATTTTCTGTTTTTGGAATTCTTAGATGGAACGCTCTGTAAAAACTGACAGATTAAAATGAGAAAAAGAGAAAAGTT
+vcf_pos = 50804129, vcf_chromosome = chr22
+time: command terminated abnormally
+     1407.04 real      1288.01 user       171.78 sys
+
