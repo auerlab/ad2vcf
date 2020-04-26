@@ -296,7 +296,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    VCF_REF(&vcf_calls_for_position.call[c]),
 		    VCF_ALT(&vcf_calls_for_position.call[c]),
 		    VCF_FORMAT(&vcf_calls_for_position.call[c]),
-		    VCF_SAMPLE(&vcf_calls_for_position.call[c], 0),
+		    VCF_SINGLE_SAMPLE(&vcf_calls_for_position.call[c]),
 		    VCF_REF_COUNT(&vcf_calls_for_position.call[c]),
 		    VCF_ALT_COUNT(&vcf_calls_for_position.call[c]),
 		    VCF_REF_COUNT(&vcf_calls_for_position.call[c]) +
