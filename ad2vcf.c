@@ -185,7 +185,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	// Skip remaining alignments for previous chromosome after VCF
 	// chromosome changes
 	while ( more_alignments &&
-		(chromosome_name_cmp(SAM_RNAME(&sam_alignment), vcf_chromosome) < 0) )
+		(chromosome_name_cmp(SAM_RNAME(&sam_alignment),
+				     vcf_chromosome, 3) < 0) )
 	{
 	    // Debug
 	    /*
