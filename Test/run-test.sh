@@ -8,3 +8,16 @@ if diff test-ad-correct.vcf test-ad.vcf; then
 else
     printf "Differences found.\n"
 fi
+
+printf "\n======================================================================\n"
+printf "The following 4 tests should fail with complaints about input sorting.\n"
+
+set +e
+printf "===\n"
+../ad2vcf test-bad-pos.vcf < test.sam
+printf "===\n"
+../ad2vcf test-bad-chr.vcf < test.sam
+printf "===\n"
+../ad2vcf test.vcf < test-bad-pos.sam
+printf "===\n"
+../ad2vcf test.vcf < test-bad-chr.sam
