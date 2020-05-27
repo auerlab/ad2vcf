@@ -1,7 +1,6 @@
 
 #define     CMD_MAX                 128
 #define     MAX_BUFFERED_ALIGNMENTS 32768
-#define     SAM_BUFF_INIT           { 0, 0, 0, "" }
 
 // FIXME: Move this to samio when complete?
 typedef struct

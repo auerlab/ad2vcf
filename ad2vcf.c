@@ -60,7 +60,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     FILE            *vcf_in_stream,
 		    *vcf_out_stream;
     vcf_call_t      vcf_call;
-    sam_buff_t      sam_buff = SAM_BUFF_INIT;
+    sam_buff_t      sam_buff;
     bool            xz = false,
 		    more_alignments;
     size_t          vcf_calls_read = 0,
@@ -111,6 +111,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	exit(EX_CANTCREAT);
     }
 
+    sam_buff_init(&sam_buff);
+    
     while ( vcf_read_ss_call(vcf_in_stream, &vcf_call, VCF_SAMPLE_MAX_CHARS) == VCF_READ_OK )
     {
 	++vcf_calls_read;
@@ -143,7 +145,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	
 	/* Skip SAM alignments that don't include this position */
 	more_alignments = skip_past_alignments(&vcf_call, sam_stream,
-						   &sam_buff, vcf_out_stream);
+					       &sam_buff, vcf_out_stream);
 	
 	/* Scan SAM alignments that include this position and count alleles */
 	if ( more_alignments )
@@ -207,7 +209,7 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 		SAM_POS(sam_buff->alignments[c]),
 		VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
 #endif
-	free(sam_buff->alignments[c]);
+	// free(sam_buff->alignments[c]);
     }
     for (c2 = c; c2 < sam_buff->count; ++c2)
 	sam_buff->alignments[c2 - c] = sam_buff->alignments[c2];
@@ -458,6 +460,29 @@ void    sam_buff_check_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignmen
 
 /***************************************************************************
  *  Description:
+ *      Initialize a SAM alignment buffer
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-27  Jason Bacon Begin
+ ***************************************************************************/
+
+void    sam_buff_init(sam_buff_t *sam_buff)
+
+{
+    size_t  c;
+    
+    sam_buff->count = 0;
+    sam_buff->max_count = 0;
+    sam_buff->previous_pos = 0;
+    *sam_buff->previous_rname = '\0';
+    for (c = 0; c < MAX_BUFFERED_ALIGNMENTS; ++c)
+	sam_buff->alignments[c] = NULL;
+}
+
+
+/***************************************************************************
+ *  Description:
  *      Add a new alignment to the buffer
  *
  *  History: 
@@ -468,11 +493,15 @@ void    sam_buff_check_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignmen
 void    sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment)
 
 {
-    sam_buff->alignments[sam_buff->count] = malloc(sizeof(sam_alignment_t));
-    memcpy(sam_buff->alignments[sam_buff->count], sam_alignment, sizeof(sam_alignment_t));
+    if ( sam_buff->alignments[sam_buff->count] == NULL )
+	sam_buff->alignments[sam_buff->count] = malloc(sizeof(sam_alignment_t));
+    sam_alignment_copy(sam_buff->alignments[sam_buff->count], sam_alignment);
     ++sam_buff->count;
     if ( sam_buff->count > sam_buff->max_count )
+    {
 	sam_buff->max_count = sam_buff->count;
+	fprintf(stderr, "sam_buff->max_count = %zu\n", sam_buff->max_count);
+    }
 }
 
 
@@ -493,5 +522,29 @@ void    sam_buff_out_of_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignme
 	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
 	    sam_buff->previous_rname, sam_buff->previous_pos);
     exit(EX_DATAERR);
+}
+
+
+/***************************************************************************
+ *  Description:
+ *      Copy a SAM alignment as efficiently as possible
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-27  Jason Bacon Begin
+ ***************************************************************************/
+
+void    sam_alignment_copy(sam_alignment_t *dest, sam_alignment_t *src)
+
+{
+    strlcpy(dest->qname, src->qname, SAM_QNAME_MAX_CHARS);
+    strlcpy(dest->rname, src->rname, SAM_RNAME_MAX_CHARS);
+    /*
+     *  seq_len is provided by sam_read_alignment() so this
+     *  should be slightly faster than strlcpy()
+     */
+    memcpy(dest->seq, src->seq, src->seq_len + 1);
+    dest->pos = src->pos;
+    dest->seq_len = src->seq_len;
 }
 
