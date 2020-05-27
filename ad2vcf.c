@@ -57,270 +57,301 @@ void    usage(const char *argv[])
 int     ad2vcf(const char *argv[], FILE *sam_stream)
 
 {
-    FILE            *vcf_stream,
-		    *allele_stream;
-    sam_alignment_t sam_alignment;
-    int             more_alignments,
-		    allele,
-		    c;
-    bool            xz = false;
-    size_t          vcf_pos = 0,
-		    vcf_calls_read = 0,
-		    alignments_read = 1,
-		    previous_vcf_pos = 0,
-		    previous_alignment_pos = 0;
+    FILE            *vcf_in_stream,
+		    *vcf_out_stream;
+    vcf_call_t      vcf_call;
+    sam_buff_t      sam_buff = SAM_BUFF_INIT;
+    bool            xz = false,
+		    more_alignments;
+    size_t          vcf_calls_read = 0,
+		    previous_vcf_pos = 0;
     char            cmd[CMD_MAX + 1],
-		    allele_filename[PATH_MAX + 1],
-		    *vcf_chromosome,
-		    previous_vcf_chromosome[VCF_CHROMOSOME_MAX_CHARS + 1] = "",
-		    previous_sam_rname[SAM_RNAME_MAX + 1] = "",
+		    vcf_out_filename[PATH_MAX + 1],
+		    previous_vcf_chromosome[VCF_CHROMOSOME_MAX_CHARS + 1],
 		    *ext;
     const char      *vcf_filename = argv[1];
-    /*
-     *  Linux default stack size is 8 MiB and VCF_INFO_MAX_CHARS has to be
-     *  large to accommodate dpGap BCFs.  Make this static to avoid stack
-     *  overflow (manifests as a seg fault on Linux).
-     */
-    static vcf_calls_for_position_t    vcf_calls_for_position;
     
     xz = ((ext = strstr(vcf_filename,".xz")) != NULL) && (ext[3] == '\0');
     if ( xz )
     {
 	snprintf(cmd, CMD_MAX, "unxz -c %s", vcf_filename);
-	vcf_stream = popen(cmd, "r");
+	vcf_in_stream = popen(cmd, "r");
     }
     else
-	vcf_stream = fopen(vcf_filename, "r");
+	vcf_in_stream = fopen(vcf_filename, "r");
     
-    if ( vcf_stream == NULL )
+    if ( vcf_in_stream == NULL )
     {
 	fprintf(stderr, "%s: Cannot open %s: %s\n", argv[0], argv[1],
 	    strerror(errno));
 	exit(EX_NOINPUT);
     }
 
+    // Insert "-ad" before ".vcf"
     if ( (ext = strstr(vcf_filename, ".vcf")) == NULL )
     {
 	fprintf(stderr, "%s: Input filename must contain \".vcf\".\n", argv[0]);
 	exit(EX_DATAERR);
     }
-    
-    // Insert "-ad" before ".vcf"
     *ext = '\0';
-    snprintf(allele_filename, PATH_MAX, "%s-ad.%s", vcf_filename, ext+1);
+    snprintf(vcf_out_filename, PATH_MAX, "%s-ad.%s", vcf_filename, ext+1);
 
     if ( xz )
     {
-	snprintf(cmd, CMD_MAX, "xz -c > %s", allele_filename);
-	allele_stream = popen(cmd, "w");
+	snprintf(cmd, CMD_MAX, "xz -c > %s", vcf_out_filename);
+	vcf_out_stream = popen(cmd, "w");
     }
     else
-	allele_stream = fopen(allele_filename, "w");
+	vcf_out_stream = fopen(vcf_out_filename, "w");
     
-    if ( allele_stream == NULL )
+    if ( vcf_out_stream == NULL )
     {
-	fprintf(stderr, "%s: Cannot open %s: %s\n", argv[0], allele_filename,
+	fprintf(stderr, "%s: Cannot open %s: %s\n", argv[0], vcf_out_filename,
 	    strerror(errno));
 	exit(EX_CANTCREAT);
     }
-    
-    /*
-     *  Read in VCF fields
-     */
-    
-    // Prime loop by reading first SAM alignment
-    more_alignments = sam_read_alignment(argv, sam_stream, &sam_alignment);
-    
-    /*
-     *  Check each SAM alignment against all ALT alleles.  There may be
-     *  consecutive VCF calls with the same position, so we read in all of
-     *  them at once and match each SAM read to every one.
-     */
-    while ( more_alignments &&
-	    ((vcf_read_calls_for_position(vcf_stream,
-				      &vcf_calls_for_position)) > 0) )
+
+    while ( vcf_read_ss_call(vcf_in_stream, &vcf_call, VCF_SAMPLE_MAX_CHARS) == VCF_READ_OK )
     {
-	// chromosome and position are the same for all calls
-	vcf_pos = vcf_calls_for_position.call[0].pos;
-	vcf_chromosome = vcf_calls_for_position.call[0].chromosome;
-	// FIXME: Can this be done before the loop?
-	// This if check is a tiny performance hit
-	if ( *previous_vcf_chromosome == '\0' )
-	    strlcpy(previous_vcf_chromosome, vcf_chromosome,
-		    VCF_CHROMOSOME_MAX_CHARS);
-	
-	/*
-	 *  VCF input must be sorted by chromosome, then position.
-	 *  If current position < previous and chromosome is the same,
-	 *  then the input is not sorted.
-	 */
-	if ( vcf_pos < previous_vcf_pos )
-	{
-	    if ( strcmp(vcf_chromosome, previous_vcf_chromosome) == 0 )
-	    {
-		fprintf(stderr, "%s: VCF input must be sorted first by chromosome then position.\n", argv[0]);
-		exit(EX_DATAERR);
-	    }
-	    else
-	    {
-		fprintf(stderr, "INFO: Finished chromosome %s: %zu calls processed.\n",
-			previous_vcf_chromosome, vcf_calls_read);
-		// Begin next chromosome, reset pos
-		strlcpy(previous_vcf_chromosome, vcf_chromosome,
-			VCF_CHROMOSOME_MAX_CHARS);
-		previous_vcf_pos = vcf_pos;
-		vcf_calls_read = 0;
-	    }
-	}
-	else
-	    previous_vcf_pos = vcf_pos;
-	
-	// Debug
-	// fprintf(stderr, "VCF call %s %zu\n", vcf_chromosome, vcf_pos);
-	vcf_calls_read += vcf_calls_for_position.count;
-	if ( vcf_calls_for_position.count > 1 )
-	    fprintf(stderr, "INFO: %zu calls at chromosome %s pos %zu.\n",
-		    vcf_calls_for_position.count, vcf_chromosome, vcf_pos);
+	++vcf_calls_read;
 
-	// Skip remaining alignments for previous chromosome after VCF
-	// chromosome changes
-	while ( more_alignments &&
-		(chromosome_name_cmp(SAM_RNAME(&sam_alignment),
-				     vcf_chromosome, 3) < 0) )
+	/* Make sure VCF calls are sorted */
+	if ( (VCF_POS(&vcf_call) < previous_vcf_pos) &&
+	     (strcmp(VCF_CHROMOSOME(&vcf_call), previous_vcf_chromosome) == 0) )
 	{
-	    // Debug
-	    /*
-	    fprintf(stderr, "Skipping %s %zu on the way to VCF %s %zu\n",
+	    fprintf(stderr, "ad2vcf(): VCF data must be sorted by chromosome and then positiion.\n");
+	    exit(EX_DATAERR);
+	}
+	
+	/* Skip SAM alignments that don't include this position */
+	more_alignments = skip_past_alignments(&vcf_call, sam_stream,
+						   &sam_buff, vcf_out_stream);
+	
+	/* Scan SAM alignments that include this position and count alleles */
+	if ( more_alignments )
+	    allelic_depth(&vcf_call, sam_stream, &sam_buff, vcf_out_stream);
+	
+	/* Output record with allelic depth */
+	fprintf(vcf_out_stream,
+		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u:%u\n",
+		VCF_CHROMOSOME(&vcf_call), VCF_POS(&vcf_call),
+		VCF_REF(&vcf_call),
+		VCF_ALT(&vcf_call),
+		VCF_FORMAT(&vcf_call),
+		VCF_SINGLE_SAMPLE(&vcf_call),
+		VCF_REF_COUNT(&vcf_call),
+		VCF_ALT_COUNT(&vcf_call),
+		VCF_REF_COUNT(&vcf_call) + VCF_ALT_COUNT(&vcf_call));
+    }
+    
+    fprintf(stderr, "Max buffered alignments: %zu\n", sam_buff.max_count);
+    if ( xz )
+	pclose(vcf_in_stream);
+    else
+	fclose(vcf_in_stream);
+    return EX_OK;
+}
+
+
+/***************************************************************************
+ *  Description:
+ *      Skip alignments behind the given VCF call chromosome and pos
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-26  Jason Bacon Begin
+ ***************************************************************************/
+
+bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
+			     sam_buff_t *sam_buff, FILE *vcf_out_stream)
+
+{
+    size_t          c, c2;
+    sam_alignment_t sam_alignment;
+    bool            ma = true;
+    
+    /* Check SAM sorting */
+    
+    /*
+     *  Check and discard already buffered alignments behind the given
+     *  VCF call.  They will be useless to subsequent calls as well
+     *  since the calls must be sorted in ascending order.
+     */
+    for (c = 0; (c < sam_buff->count) &&
+		alignment_behind_call(vcf_call, sam_buff->alignments[c]); ++c)
+    {
+	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu behind VCF call at %s,%zu\n", c,
+		SAM_RNAME(sam_buff->alignments[c]),
+		SAM_POS(sam_buff->alignments[c]),
+		VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
+	free(sam_buff->alignments[c]);
+    }
+    for (c2 = c; c2 < sam_buff->count; ++c2)
+	sam_buff->alignments[c2 - c] = sam_buff->alignments[c2];
+    sam_buff->count -= c;
+    
+    /*
+     *  Read alignments from the stream until we find one that's not behind
+     *  this VCF call, i.e. not overlapping and at a lower position or
+     *  chromosome.
+     */
+    if ( sam_buff->count == 0 )
+    {
+	while ( (ma = sam_read_alignment(sam_stream, &sam_alignment)) &&
+		alignment_behind_call(vcf_call, &sam_alignment) )
+	{
+	    fprintf(stderr, "skip(): Skipping new alignment %s,%zu behind %s,%zu\n",
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-		    vcf_chromosome, vcf_pos);
-	    */
-	    more_alignments =
-		sam_read_alignment(argv, sam_stream, &sam_alignment);
-	    ++alignments_read;
+		    VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
 	}
-	
-#ifdef DEBUG
-	fprintf(allele_stream, "# %s %zu ", vcf_chromosome, vcf_pos);
-#endif
+	sam_buff->alignments[0] = malloc(sizeof(sam_alignment_t));
+	memcpy(sam_buff->alignments[0], &sam_alignment, sizeof(sam_alignment));
+	fprintf(stderr, "skip(): Added alignment #0 %s,%zu,%zu\n",
+		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+		    SAM_SEQ_LEN(&sam_alignment));
+	++sam_buff->count;
+	if ( sam_buff->count > sam_buff->max_count )
+	    sam_buff->max_count = sam_buff->count;
+    }
+    
+    return ma;
+}
 
-	/*
-	 *  Now check all SAM alignments for the same chromosome with sequence
-	 *  starting positions <= the VCF call position. Both SAM and VCF
-	 *  should be sorted by chromosome first and then position, so when we
-	 *  encounter a SAM alignment with a different chromosome or a position
-	 *  beyond the VCF position, we're done with this VCF call.
-	 *
-	 *  Do integer position compare before strcmp().  It's
-	 *  less intuitive to check the second sort key first, but faster
-	 *  since the strcmp() is unnecessary when the integer
-	 *  comparison is false.
-	 */
-	while ( more_alignments &&
-		(SAM_POS(&sam_alignment) <= vcf_pos) &&
-		(strcmp(SAM_RNAME(&sam_alignment), vcf_chromosome) == 0) )
-	{
-	    /*
-	     *  We know at this point that the VCF call position is downstream
-	     *  from the start of the SAM alignment sequence.  Is it also
-	     *  upstream of the end?  If so, record the exact position and
-	     *  allele.
-	     */
-	    if ( vcf_pos < SAM_POS(&sam_alignment) + SAM_SEQ_LEN(&sam_alignment) )
-	    {
-		allele = SAM_SEQ(&sam_alignment)[vcf_pos - SAM_POS(&sam_alignment)];
-#ifdef DEBUG
-		fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
-			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-			SAM_SEQ(&sam_alignment)_len, SAM_SEQ(&sam_alignment));
-		fprintf(stderr, "Found allele %c (%d) for call pos %zu on %s aligned seq starting at %zu.\n",
-			allele, allele, vcf_pos, vcf_chromosome,
-			SAM_POS(&sam_alignment));
-		fprintf(stderr, "Calls: %zu  Alignments: %zu\n",
-			vcf_calls_read, alignments_read);
-		putc(allele, allele_stream);
-#endif
-		
-		for (c = 0; c < vcf_calls_for_position.count; ++c)
-		{
-		    if ( allele == *VCF_REF(&vcf_calls_for_position.call[c]) )
-			++VCF_REF_COUNT(&vcf_calls_for_position.call[c]);
-		    else if ( allele == *VCF_ALT(&vcf_calls_for_position.call[c]) )
-			++VCF_ALT_COUNT(&vcf_calls_for_position.call[c]);
-		    else
-			++VCF_OTHER_COUNT(&vcf_calls_for_position.call[c]);
-		}
-	    }
-	    
-	    more_alignments = sam_read_alignment(argv, sam_stream, &sam_alignment);
-	    ++alignments_read;
-	    
-	    /*
-	     *  SAM input must be sorted by rname (chromosome), then position.
-	     *  If current position < previous and chromosome is the same,
-	     *  then the SAM input is not sorted.
-	     */
-	    if ( SAM_POS(&sam_alignment) < previous_alignment_pos )
-	    {
-		if ( strcmp(SAM_RNAME(&sam_alignment), previous_sam_rname) == 0 )
-		{
-		    fprintf(stderr, "%s: SAM input is not sorted.\n", argv[0]);
-		    exit(EX_DATAERR);
-		}
-		else
-		{
-		    // Begin next chromosome, reset pos
-		    strlcpy(previous_sam_rname, SAM_RNAME(&sam_alignment), SAM_RNAME_MAX);
-		    previous_alignment_pos = SAM_POS(&sam_alignment);
-		}
-	    }
-	    else
-		previous_alignment_pos = SAM_POS(&sam_alignment);
-	}
 
-#ifdef DEBUG
-	putc('\n', allele_stream);
-	/*
-	fprintf(stderr, "===\nOut of alignments for VCF %s %zu\n",
-		vcf_chromosome, vcf_pos);
-	fprintf(stderr, "rname = %s pos=%zu\n",
-		SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment));
-	*/
-#endif
-	
-	for (c = 0; c < vcf_calls_for_position.count; ++c)
+/***************************************************************************
+ *  Description:
+ *      Scan alignments in the SAM stream that encompass the given
+ *      chromosome and position and update ref_count and alt_count
+ *      for the VCF call.
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-26  Jason Bacon Begin
+ ***************************************************************************/
+
+bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
+		      sam_buff_t *sam_buff, FILE *vcf_out_stream)
+
+{
+    size_t          c;
+    bool            ma = true, cai = true;
+    sam_alignment_t sam_alignment;
+
+    /* Check SAM sorting */
+    
+    //fprintf(stderr, "depth(): %zu alignments in buffer.\n", sam_buff->count);
+    /* Check and discard already buffered alignments */
+    for (c = 0; (c < sam_buff->count) &&
+		(cai = call_in_alignment(vcf_call, sam_buff->alignments[c]));
+		++c)
+    {
+	fprintf(stderr, "depth(): Counting buffered alignment %s,%zu containing %s,%zu\n",
+		SAM_RNAME(sam_buff->alignments[c]),
+		SAM_POS(sam_buff->alignments[c]),
+		VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
+	update_allele_count(vcf_call, sam_buff->alignments[c], vcf_out_stream);
+    }
+    //fprintf(stderr, "depth(): End of buffer at %zu.\n", c);
+    
+    if ( (c == 0) || cai )
+    {
+	/* Read and buffer more alignments from the stream */
+	while ( (ma = sam_read_alignment(sam_stream, &sam_alignment))
+		&& call_in_alignment(vcf_call, &sam_alignment) )
 	{
-	    // FIXME: Use vcf_write_call()
-	    // Haplohseq expects DP to be sum of AD values (P. Auer)
-	    fprintf(allele_stream,
-		    "%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u:%u\n",
-		    vcf_chromosome, vcf_pos,
-		    VCF_REF(&vcf_calls_for_position.call[c]),
-		    VCF_ALT(&vcf_calls_for_position.call[c]),
-		    VCF_FORMAT(&vcf_calls_for_position.call[c]),
-		    VCF_SINGLE_SAMPLE(&vcf_calls_for_position.call[c]),
-		    VCF_REF_COUNT(&vcf_calls_for_position.call[c]),
-		    VCF_ALT_COUNT(&vcf_calls_for_position.call[c]),
-		    VCF_REF_COUNT(&vcf_calls_for_position.call[c]) +
-			VCF_ALT_COUNT(&vcf_calls_for_position.call[c]));
-		    // vcf_calls_for_position.call[c].other_count);
+	    fprintf(stderr, "depth(): Counting new alignment %s,%zu containing %s,%zu\n",
+		    SAM_RNAME(&sam_alignment),
+		    SAM_POS(&sam_alignment),
+		    VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
+	    update_allele_count(vcf_call, &sam_alignment, vcf_out_stream);
+	    sam_buff->alignments[c] = malloc(sizeof(sam_alignment_t));
+	    memcpy(sam_buff->alignments[c], &sam_alignment, sizeof(sam_alignment));
+	    ++c;
 	}
     }
     
-    fprintf(stderr, "INFO: Finished chromosome %s: %zu calls processed.\n",
-	    vcf_chromosome, vcf_calls_read);
-    
-    // Debug
-    fprintf(stderr, "Loop terminated with more_alignments = %d, new calls = %zu\n",
-	    more_alignments, vcf_calls_for_position.count);
-    fprintf(stderr, "===\nrname = %s pos=%zu len=%zu %s\n",
-	    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-	    SAM_SEQ_LEN(&sam_alignment), SAM_SEQ(&sam_alignment));
-    fprintf(stderr, "vcf_pos = %zu, vcf_chromosome = %s\n",
-	    vcf_pos, vcf_chromosome);
-    
-    if ( xz )
-	pclose(vcf_stream);
-    else
-	fclose(vcf_stream);
-    return EX_OK;
+    //fprintf(stderr, "depth(): Returning %d\n", ma);
+    return ma;
 }
+
+
+/***************************************************************************
+ *  Description:
+ *      Determine whether a VCF call is within a SAM alignment.
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-26  Jason Bacon Begin
+ ***************************************************************************/
+
+bool    call_in_alignment(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
+
+{
+    if ( (strcmp(VCF_CHROMOSOME(vcf_call), SAM_RNAME(sam_alignment)) == 0) &&
+	 (VCF_POS(vcf_call) >= SAM_POS(sam_alignment)) &&
+	 (VCF_POS(vcf_call) <
+	    SAM_POS(sam_alignment) + SAM_SEQ_LEN(sam_alignment)) )
+	return true;
+    else
+	return false;
+}
+
+
+/***************************************************************************
+ *  Description:
+ *      Determine SAM alignment is completely behind a VCF call position,
+ *      i.e. not overlapping and at a lower position or chromosome.
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-26  Jason Bacon Begin
+ ***************************************************************************/
+
+bool    alignment_behind_call(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
+
+{
+    if ( (strcmp(VCF_CHROMOSOME(vcf_call), SAM_RNAME(sam_alignment)) > 0) ||
+	 (VCF_POS(vcf_call) >=
+	  SAM_POS(sam_alignment) + SAM_SEQ_LEN(sam_alignment)) )
+	return true;
+    else
+	return false;
+}
+
+
+/***************************************************************************
+ *  Description:
+ *      Update allele counts
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-26  Jason Bacon Begin
+ ***************************************************************************/
+
+void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment,
+			   FILE *vcf_out_stream)
+
+{
+    unsigned char   allele;
+    
+    allele = SAM_SEQ(sam_alignment)[VCF_POS(vcf_call) - SAM_POS(sam_alignment)];
+#ifdef DEBUG
+    /*
+    fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
+	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
+	    SAM_SEQ_LEN(sam_alignment), SAM_SEQ(sam_alignment));
+    */
+    fprintf(stderr, "Found allele %c for call %s,%zu in seq %s,%zu.\n",
+	    allele, VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call),
+	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment));
+    fputs("===\n", stderr);
+    putc(allele, vcf_out_stream);
+#endif
+    if ( allele == *VCF_REF(vcf_call) )
+	++VCF_REF_COUNT(vcf_call);
+    else if ( allele == *VCF_ALT(vcf_call) )
+	++VCF_ALT_COUNT(vcf_call);
+    else
+	++VCF_OTHER_COUNT(vcf_call);
+}
+
