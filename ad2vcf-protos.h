@@ -11,4 +11,5 @@ void sam_buff_check_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment);
 void sam_buff_init(sam_buff_t *sam_buff);
 void sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment);
 void sam_buff_out_of_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment);
+void vcf_out_of_order(vcf_call_t *vcf_call, char *previous_chromosome, size_t previous_pos);
 void sam_alignment_copy(sam_alignment_t *dest, sam_alignment_t *src);

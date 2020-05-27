@@ -125,19 +125,24 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 #endif
 
 	/* Make sure VCF calls are sorted */
-	if ( ((VCF_POS(&vcf_call) < previous_vcf_pos) &&
-	     (strcmp(VCF_CHROMOSOME(&vcf_call), previous_vcf_chromosome) == 0))
-	     || (chromosome_name_cmp(VCF_CHROMOSOME(&vcf_call),
-				    previous_vcf_chromosome) < 0) )
+	if ( strcmp(VCF_CHROMOSOME(&vcf_call), previous_vcf_chromosome) == 0 )
 	{
-	    fprintf(stderr, "ad2vcf: Error: VCF input must be sorted by chromosome and then positiion.\n");
-	    fprintf(stderr, "Found %s,%zu after %s,%zu.\n",
-		    VCF_CHROMOSOME(&vcf_call), VCF_POS(&vcf_call),
-		    previous_vcf_chromosome, previous_vcf_pos);
-	    exit(EX_DATAERR);
+	    if ( VCF_POS(&vcf_call) < previous_vcf_pos )
+		 vcf_out_of_order(&vcf_call, previous_vcf_chromosome,
+				  previous_vcf_pos);
+	    else
+		previous_vcf_pos = VCF_POS(&vcf_call);
+	}
+	else if ( chromosome_name_cmp(VCF_CHROMOSOME(&vcf_call),
+				      previous_vcf_chromosome) < 0 )
+	{
+	    vcf_out_of_order(&vcf_call, previous_vcf_chromosome,
+			     previous_vcf_pos);
 	}
 	else
 	{
+	    fprintf(stderr, "Starting VCF chromosome %s.\n",
+		    VCF_CHROMOSOME(&vcf_call));
 	    strlcpy(previous_vcf_chromosome, VCF_CHROMOSOME(&vcf_call),
 		    VCF_CHROMOSOME_MAX_CHARS);
 	    previous_vcf_pos = VCF_POS(&vcf_call);
@@ -500,7 +505,7 @@ void    sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignm
     if ( sam_buff->count > sam_buff->max_count )
     {
 	sam_buff->max_count = sam_buff->count;
-	fprintf(stderr, "sam_buff->max_count = %zu\n", sam_buff->max_count);
+	//fprintf(stderr, "sam_buff->max_count = %zu\n", sam_buff->max_count);
     }
 }
 
@@ -521,6 +526,27 @@ void    sam_buff_out_of_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignme
     fprintf(stderr, "Found %s,%zu after %s,%zu.\n",
 	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
 	    sam_buff->previous_rname, sam_buff->previous_pos);
+    exit(EX_DATAERR);
+}
+
+
+/***************************************************************************
+ *  Description:
+ *      Explain VCF input sort error and exit.
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-27  Jason Bacon Begin
+ ***************************************************************************/
+
+void    vcf_out_of_order(vcf_call_t *vcf_call,
+			 char *previous_chromosome, size_t previous_pos)
+
+{
+    fprintf(stderr, "ad2vcf: Error: VCF input must be sorted by chromosome and then position.\n");
+    fprintf(stderr, "Found %s,%zu after %s,%zu.\n",
+	    VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call),
+	    previous_chromosome, previous_pos);
     exit(EX_DATAERR);
 }
 
