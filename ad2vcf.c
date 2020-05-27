@@ -67,7 +67,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    previous_vcf_pos = 0;
     char            cmd[CMD_MAX + 1],
 		    vcf_out_filename[PATH_MAX + 1],
-		    previous_vcf_chromosome[VCF_CHROMOSOME_MAX_CHARS + 1],
+		    previous_vcf_chromosome[VCF_CHROMOSOME_MAX_CHARS + 1] = "",
 		    *ext;
     const char      *vcf_filename = argv[1];
     
@@ -116,11 +116,22 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	++vcf_calls_read;
 
 	/* Make sure VCF calls are sorted */
-	if ( (VCF_POS(&vcf_call) < previous_vcf_pos) &&
-	     (strcmp(VCF_CHROMOSOME(&vcf_call), previous_vcf_chromosome) == 0) )
+	if ( ((VCF_POS(&vcf_call) < previous_vcf_pos) &&
+	     (strcmp(VCF_CHROMOSOME(&vcf_call), previous_vcf_chromosome) == 0))
+	     || (chromosome_name_cmp(VCF_CHROMOSOME(&vcf_call),
+				    previous_vcf_chromosome) < 0) )
 	{
-	    fprintf(stderr, "ad2vcf(): VCF data must be sorted by chromosome and then positiion.\n");
+	    fprintf(stderr, "ad2vcf(): Error: VCF data must be sorted by chromosome and then positiion.\n");
+	    fprintf(stderr, "Found %s,%zu after %s,%zu.\n",
+		    VCF_CHROMOSOME(&vcf_call), VCF_POS(&vcf_call),
+		    previous_vcf_chromosome, previous_vcf_pos);
 	    exit(EX_DATAERR);
+	}
+	else
+	{
+	    strlcpy(previous_vcf_chromosome, VCF_CHROMOSOME(&vcf_call),
+		    VCF_CHROMOSOME_MAX_CHARS);
+	    previous_vcf_pos = VCF_POS(&vcf_call);
 	}
 	
 	/* Skip SAM alignments that don't include this position */
@@ -180,10 +191,12 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
     for (c = 0; (c < sam_buff->count) &&
 		alignment_behind_call(vcf_call, sam_buff->alignments[c]); ++c)
     {
-	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu behind VCF call at %s,%zu\n", c,
+	/*
+	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu behind call at %s,%zu\n", c,
 		SAM_RNAME(sam_buff->alignments[c]),
 		SAM_POS(sam_buff->alignments[c]),
 		VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
+	*/
 	free(sam_buff->alignments[c]);
     }
     for (c2 = c; c2 < sam_buff->count; ++c2)
@@ -197,21 +210,24 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
      */
     if ( sam_buff->count == 0 )
     {
-	while ( (ma = sam_read_alignment(sam_stream, &sam_alignment)) &&
-		alignment_behind_call(vcf_call, &sam_alignment) )
+	while ( (ma = sam_read_alignment(sam_stream, &sam_alignment)) )
 	{
-	    fprintf(stderr, "skip(): Skipping new alignment %s,%zu behind %s,%zu\n",
-		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-		    VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
+	    sam_buff_check_order(sam_buff, &sam_alignment);
+	    sam_buff_add_alignment(sam_buff, &sam_alignment);
+	    
+	    if ( alignment_behind_call(vcf_call, &sam_alignment) )
+		fprintf(stderr, "skip(): Skipping new alignment %s,%zu behind %s,%zu\n",
+			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+			VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
+	    else
+		break;
 	}
-	sam_buff->alignments[0] = malloc(sizeof(sam_alignment_t));
-	memcpy(sam_buff->alignments[0], &sam_alignment, sizeof(sam_alignment));
-	fprintf(stderr, "skip(): Added alignment #0 %s,%zu,%zu\n",
+
+	/*
+	fprintf(stderr, "skip(): Buffering alignment #0 %s,%zu,%zu\n",
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 		    SAM_SEQ_LEN(&sam_alignment));
-	++sam_buff->count;
-	if ( sam_buff->count > sam_buff->max_count )
-	    sam_buff->max_count = sam_buff->count;
+	*/
     }
     
     return ma;
@@ -245,8 +261,8 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 		(cai = call_in_alignment(vcf_call, sam_buff->alignments[c]));
 		++c)
     {
-	fprintf(stderr, "depth(): Counting buffered alignment %s,%zu containing %s,%zu\n",
-		SAM_RNAME(sam_buff->alignments[c]),
+	fprintf(stderr, "depth(): Counting buffered alignment #%zu %s,%zu containing call %s,%zu\n",
+		c, SAM_RNAME(sam_buff->alignments[c]),
 		SAM_POS(sam_buff->alignments[c]),
 		VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
 	update_allele_count(vcf_call, sam_buff->alignments[c], vcf_out_stream);
@@ -256,21 +272,30 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
     if ( (c == 0) || cai )
     {
 	/* Read and buffer more alignments from the stream */
-	while ( (ma = sam_read_alignment(sam_stream, &sam_alignment))
-		&& call_in_alignment(vcf_call, &sam_alignment) )
+	while ( (ma = sam_read_alignment(sam_stream, &sam_alignment)) )
 	{
-	    fprintf(stderr, "depth(): Counting new alignment %s,%zu containing %s,%zu\n",
-		    SAM_RNAME(&sam_alignment),
-		    SAM_POS(&sam_alignment),
-		    VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
-	    update_allele_count(vcf_call, &sam_alignment, vcf_out_stream);
-	    sam_buff->alignments[c] = malloc(sizeof(sam_alignment_t));
-	    memcpy(sam_buff->alignments[c], &sam_alignment, sizeof(sam_alignment));
-	    ++c;
+	    sam_buff_check_order(sam_buff, &sam_alignment);
+	    sam_buff_add_alignment(sam_buff, &sam_alignment);
+	    
+	    if ( call_in_alignment(vcf_call, &sam_alignment) )
+	    {
+		fprintf(stderr, "depth(): Counting new alignment #%zu %s,%zu containing call %s,%zu\n",
+			sam_buff->count, SAM_RNAME(&sam_alignment),
+			SAM_POS(&sam_alignment),
+			VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
+		update_allele_count(vcf_call, &sam_alignment, vcf_out_stream);
+	    }
+	    else
+		break;
+	    
+	    /*
+	    fprintf(stderr, "depth(): Buffering new alignment #%zu %s,%zu\n",
+		    sam_buff->count, SAM_RNAME(&sam_alignment),
+		    SAM_POS(&sam_alignment));
+	    */
 	}
     }
-    
-    //fprintf(stderr, "depth(): Returning %d\n", ma);
+
     return ma;
 }
 
@@ -310,10 +335,24 @@ bool    call_in_alignment(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
 bool    alignment_behind_call(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
 
 {
-    if ( (strcmp(VCF_CHROMOSOME(vcf_call), SAM_RNAME(sam_alignment)) > 0) ||
-	 (VCF_POS(vcf_call) >=
-	  SAM_POS(sam_alignment) + SAM_SEQ_LEN(sam_alignment)) )
+    /*
+    fprintf(stderr, "%s %s %zu %zu %zu\n",
+	    SAM_RNAME(sam_alignment), VCF_CHROMOSOME(vcf_call),
+	    SAM_POS(sam_alignment), SAM_SEQ_LEN(sam_alignment),
+	    VCF_POS(vcf_call));
+    */
+    if ( (strcmp(SAM_RNAME(sam_alignment), VCF_CHROMOSOME(vcf_call)) == 0) &&
+	 (SAM_POS(sam_alignment) + SAM_SEQ_LEN(sam_alignment) <=
+	  VCF_POS(vcf_call)) )
+    {
+	//fputs("pos\n", stderr);
 	return true;
+    }
+    else if ( chromosome_name_cmp(SAM_RNAME(sam_alignment), VCF_CHROMOSOME(vcf_call)) < 0 )
+    {
+	//fputs("name\n", stderr);
+	return true;
+    }
     else
 	return false;
 }
@@ -333,6 +372,7 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 
 {
     unsigned char   allele;
+    char            *atype;
     
     allele = SAM_SEQ(sam_alignment)[VCF_POS(vcf_call) - SAM_POS(sam_alignment)];
 #ifdef DEBUG
@@ -341,9 +381,13 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
 	    SAM_SEQ_LEN(sam_alignment), SAM_SEQ(sam_alignment));
     */
-    fprintf(stderr, "Found allele %c for call %s,%zu in seq %s,%zu.\n",
-	    allele, VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call),
-	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment));
+    atype = allele == *VCF_REF(vcf_call) ? "ref" :
+	allele == *VCF_ALT(vcf_call) ? "alt" : "other";
+    fprintf(stderr, "Found \"%s\" allele %c at pos %zu in seq %s,%zu for call %s,%zu.\n",
+	    atype, allele,
+	    VCF_POS(vcf_call) - SAM_POS(sam_alignment) + 1,
+	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
+	    VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
     fputs("===\n", stderr);
     putc(allele, vcf_out_stream);
 #endif
@@ -353,5 +397,80 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 	++VCF_ALT_COUNT(vcf_call);
     else
 	++VCF_OTHER_COUNT(vcf_call);
+}
+
+
+/***************************************************************************
+ *  Description:
+ *      Check order of sam alignments being read into buffer.
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-27  Jason Bacon Begin
+ ***************************************************************************/
+
+void    sam_buff_check_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment)
+
+{
+    /*
+    fprintf(stderr, "Checking sam order %s,%zu %s,%zu\n",
+	    sam_buff->previous_rname, sam_buff->previous_pos,
+	    sam_alignment->rname, sam_alignment->pos);
+    */
+    if ( strcmp(sam_alignment->rname, sam_buff->previous_rname) == 0 )
+    {
+	if (sam_alignment->pos >= sam_buff->previous_pos )
+	    sam_buff->previous_pos = sam_alignment->pos;
+	else
+	    sam_buff_out_of_order(sam_buff, sam_alignment);
+    }
+    else if ( chromosome_name_cmp(sam_alignment->rname, sam_buff->previous_rname) < 0 )
+	sam_buff_out_of_order(sam_buff, sam_alignment);
+    else
+    {
+	strlcpy(sam_buff->previous_rname, sam_alignment->rname, SAM_RNAME_MAX_CHARS);
+	sam_buff->previous_pos = sam_alignment->pos;
+    }
+}
+
+
+/***************************************************************************
+ *  Description:
+ *      Add a new alignment to the buffer
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-27  Jason Bacon Begin
+ ***************************************************************************/
+
+void    sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment)
+
+{
+    sam_buff->alignments[sam_buff->count] = malloc(sizeof(sam_alignment_t));
+    memcpy(sam_buff->alignments[sam_buff->count], sam_alignment, sizeof(sam_alignment_t));
+    ++sam_buff->count;
+    if ( sam_buff->count > sam_buff->max_count )
+	sam_buff->max_count = sam_buff->count;
+}
+
+
+/***************************************************************************
+ *  Description:
+ *      Explain SAM input sort error and exit.
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-27  Jason Bacon Begin
+ ***************************************************************************/
+
+void    sam_buff_out_of_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment)
+
+{
+    fprintf(stderr, "Chromosomes out of order in SAM input.\n");
+    fprintf(stderr, "Input must be sorted by chromosome and then position.\n");
+    fprintf(stderr, "Found %s,%zu after %s,%zu.\n",
+	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
+	    sam_buff->previous_rname, sam_buff->previous_pos);
+    exit(EX_DATAERR);
 }
 
