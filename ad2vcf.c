@@ -228,7 +228,7 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
      */
     if ( sam_buff->count == 0 )
     {
-	while ( (ma = sam_read_alignment(sam_stream, &sam_alignment)) )
+	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
 	    sam_buff_check_order(sam_buff, &sam_alignment);
 	    
@@ -295,7 +295,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
     if ( (c == 0) || cai )
     {
 	/* Read and buffer more alignments from the stream */
-	while ( (ma = sam_read_alignment(sam_stream, &sam_alignment)) )
+	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
 	    sam_buff_check_order(sam_buff, &sam_alignment);
 #ifdef DEBUG
@@ -549,28 +549,3 @@ void    vcf_out_of_order(vcf_call_t *vcf_call,
 	    previous_chromosome, previous_pos);
     exit(EX_DATAERR);
 }
-
-
-/***************************************************************************
- *  Description:
- *      Copy a SAM alignment as efficiently as possible
- *
- *  History: 
- *  Date        Name        Modification
- *  2020-05-27  Jason Bacon Begin
- ***************************************************************************/
-
-void    sam_alignment_copy(sam_alignment_t *dest, sam_alignment_t *src)
-
-{
-    strlcpy(dest->qname, src->qname, SAM_QNAME_MAX_CHARS);
-    strlcpy(dest->rname, src->rname, SAM_RNAME_MAX_CHARS);
-    /*
-     *  seq_len is provided by sam_read_alignment() so this
-     *  should be slightly faster than strlcpy()
-     */
-    memcpy(dest->seq, src->seq, src->seq_len + 1);
-    dest->pos = src->pos;
-    dest->seq_len = src->seq_len;
-}
-
