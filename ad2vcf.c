@@ -195,10 +195,23 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 
 {
     size_t          c, c2;
-    sam_alignment_t sam_alignment;
     bool            ma = true;
-    
-    /* Check SAM sorting */
+    // static so sam_alignment_read() won't keep reallocating seq
+    static sam_alignment_t sam_alignment = SAM_ALIGNMENT_INIT;
+
+    /*
+    if ( vcf_call->pos == 800909 )
+    {
+	fprintf(stderr, "skip() start: #45 = %s,%zu\n",
+		SAM_RNAME(sam_buff->alignments[45]),
+		SAM_POS(sam_buff->alignments[45]));
+	fprintf(stderr, "skip() start: #46 = %s,%zu\n",
+		SAM_RNAME(sam_buff->alignments[46]),
+		SAM_POS(sam_buff->alignments[46]));
+    }
+    */
+    if ( sam_alignment.seq == NULL )
+	sam_alignment_init(&sam_alignment, SAM_SEQ_MAX_CHARS);
     
     /*
      *  Check and discard already buffered alignments behind the given
@@ -209,16 +222,41 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 		alignment_behind_call(vcf_call, sam_buff->alignments[c]); ++c)
     {
 #ifdef DEBUG
-	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu behind %s,%zu\n", c,
-		SAM_RNAME(sam_buff->alignments[c]),
+	/*
+	if ( vcf_call->pos == 800909 )
+	    fprintf(stderr, "skip() unbuffer loop: #46 = %s,%zu\n",
+		    SAM_RNAME(sam_buff->alignments[46]),
+		    SAM_POS(sam_buff->alignments[46]));
+	*/
+	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu behind %s,%zu\n",
+		c, SAM_RNAME(sam_buff->alignments[c]),
 		SAM_POS(sam_buff->alignments[c]),
 		VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
 #endif
-	// free(sam_buff->alignments[c]);
+	/*
+	 *  It's possible that next alignment to occupy this element will have
+	 *  a different seq_len, so free it and force sam_alignment_copy()
+	 *  to allocate again.
+	 */
+	sam_alignment_free(sam_buff->alignments[c]);
+	sam_alignment_init(sam_buff->alignments[c], 0);
     }
     for (c2 = c; c2 < sam_buff->count; ++c2)
+    {
+	/*
+	fprintf(stderr, "Moving %zu to %zu %s,%zu\n", c2, c2 - c,
+		SAM_RNAME(sam_buff->alignments[c2]),
+		SAM_POS(sam_buff->alignments[c2]));
+	*/
 	sam_buff->alignments[c2 - c] = sam_buff->alignments[c2];
+    }
+    
+    // Clear vacated spots so they'll be properly allocated when reused
+    for (c2 = c; c2 < sam_buff->count; ++c2)
+	sam_alignment_init(sam_buff->alignments[c2], 0);
+    
     sam_buff->count -= c;
+    //fprintf(stderr, "Reduced count by %zu to %zu\n", c, sam_buff->count);
     //fprintf(stderr, "skip(): %zu alignments remaining.\n", sam_buff->count);
     
     /*
@@ -250,7 +288,7 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 #endif
 	sam_buff_add_alignment(sam_buff, &sam_alignment);
     }
-    
+
     return ma;
 }
 
@@ -272,10 +310,12 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 {
     size_t          c;
     bool            ma = true, cai = true;
-    sam_alignment_t sam_alignment;
+    // static so sam_alignment_read() won't keep reallocating seq
+    static sam_alignment_t sam_alignment = SAM_ALIGNMENT_INIT;
 
-    /* Check SAM sorting */
-    
+    if ( sam_alignment.seq == NULL )
+	sam_alignment_init(&sam_alignment, SAM_SEQ_MAX_CHARS);
+
     //fprintf(stderr, "depth(): %zu alignments in buffer.\n", sam_buff->count);
     /* Check and discard already buffered alignments */
     for (c = 0; (c < sam_buff->count) &&
@@ -302,8 +342,30 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 	    fprintf(stderr, "depth(): Buffering new alignment #%zu %s,%zu,%zu\n",
 		    sam_buff->count, SAM_RNAME(&sam_alignment),
 		    SAM_POS(&sam_alignment), SAM_SEQ_LEN(&sam_alignment));
+	    /* Fixed by reinitializing vacated alignments after unbuffer
+	    if ( c == 46 )
+	    {
+		fprintf(stderr, "depth() loop: #45 = %s,%zu\n",
+			SAM_RNAME(sam_buff->alignments[45]),
+			SAM_POS(sam_buff->alignments[45]));
+		fprintf(stderr, "depth() loop: #46 = %s,%zu\n",
+			SAM_RNAME(sam_buff->alignments[46]),
+			SAM_POS(sam_buff->alignments[46]));
+	    }
+	    */
 #endif
 	    sam_buff_add_alignment(sam_buff, &sam_alignment);
+	    /* Fixed by reinitializing vacated alignments after unbuffer
+	    if ( c == 46 )
+	    {
+		fprintf(stderr, "depth() loop: #45 = %s,%zu\n",
+			SAM_RNAME(sam_buff->alignments[45]),
+			SAM_POS(sam_buff->alignments[45]));
+		fprintf(stderr, "depth() loop: #46 = %s,%zu\n",
+			SAM_RNAME(sam_buff->alignments[46]),
+			SAM_POS(sam_buff->alignments[46]));
+	    }
+	    */
 	    
 	    if ( call_in_alignment(vcf_call, &sam_alignment) )
 	    {
@@ -401,10 +463,10 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 
 {
     unsigned char   allele;
-    char            *atype;
     
     allele = SAM_SEQ(sam_alignment)[VCF_POS(vcf_call) - SAM_POS(sam_alignment)];
 #ifdef DEBUG
+    char            *atype;
     /*
     fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
 	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
@@ -481,7 +543,7 @@ void    sam_buff_init(sam_buff_t *sam_buff)
     sam_buff->max_count = 0;
     sam_buff->previous_pos = 0;
     *sam_buff->previous_rname = '\0';
-    for (c = 0; c < MAX_BUFFERED_ALIGNMENTS; ++c)
+    for (c = 0; c < SAM_BUFF_MAX_ALIGNMENTS; ++c)
 	sam_buff->alignments[c] = NULL;
 }
 
@@ -499,8 +561,46 @@ void    sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignm
 
 {
     if ( sam_buff->alignments[sam_buff->count] == NULL )
+    {
+	//fprintf(stderr, "Allocating alignment #%zu\n", sam_buff->count);
 	sam_buff->alignments[sam_buff->count] = malloc(sizeof(sam_alignment_t));
+	if ( sam_buff->alignments[sam_buff->count] == NULL )
+	{
+	    fprintf(stderr, "sam_buff_add_alignment(): malloc() failed.\n");
+	    exit(EX_UNAVAILABLE);
+	}
+    }
+    /* Fixed by reinitializing vacated alignments after unbuffer
+    if ( sam_buff->count == 46 )
+    {
+	fprintf(stderr, "add() before copy(): #45 = %s,%zu\n",
+		SAM_RNAME(sam_buff->alignments[45]),
+		SAM_POS(sam_buff->alignments[45]));
+	fprintf(stderr, "%p %p\n", sam_buff->alignments[45],
+		sam_buff->alignments[46]);
+    }
+    */
+    sam_alignment_free(sam_buff->alignments[sam_buff->count]);
     sam_alignment_copy(sam_buff->alignments[sam_buff->count], sam_alignment);
+    /* Fixed by reinitializing vacated alignments after unbuffer
+    if ( sam_buff->count == 46 )
+	fprintf(stderr, "add() after copy(): #45 = %s,%zu\n",
+		SAM_RNAME(sam_buff->alignments[45]),
+		SAM_POS(sam_buff->alignments[45]));
+    fprintf(stderr, "Added alignment #%zu %s,%zu seq_len = %zu/%zu\n",
+	    sam_buff->count,
+	    SAM_RNAME(sam_buff->alignments[sam_buff->count]),
+	    SAM_POS(sam_buff->alignments[sam_buff->count]),
+	    strlen(SAM_SEQ(sam_buff->alignments[sam_buff->count])),
+	    SAM_SEQ_LEN(sam_buff->alignments[sam_buff->count]));
+    */
+    
+    if (sam_buff->count == SAM_BUFF_MAX_ALIGNMENTS )
+    {
+	fprintf(stderr, "sam_buff_add_alignment(): Hit SAM_BUFF_MAX_ALIGNMENTS\n");
+	fprintf(stderr, "Increase value in head and recompile.\n");
+	exit(EX_SOFTWARE);
+    }
     ++sam_buff->count;
     if ( sam_buff->count > sam_buff->max_count )
     {
