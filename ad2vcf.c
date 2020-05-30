@@ -194,22 +194,11 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 			     sam_buff_t *sam_buff, FILE *vcf_out_stream)
 
 {
-    size_t          c, c2;
+    size_t          c;
     bool            ma = true;
     // static so sam_alignment_read() won't keep reallocating seq
     static sam_alignment_t sam_alignment = SAM_ALIGNMENT_INIT;
 
-    /*
-    if ( vcf_call->pos == 800909 )
-    {
-	fprintf(stderr, "skip() start: #45 = %s,%zu\n",
-		SAM_RNAME(sam_buff->alignments[45]),
-		SAM_POS(sam_buff->alignments[45]));
-	fprintf(stderr, "skip() start: #46 = %s,%zu\n",
-		SAM_RNAME(sam_buff->alignments[46]),
-		SAM_POS(sam_buff->alignments[46]));
-    }
-    */
     if ( sam_alignment.seq == NULL )
 	sam_alignment_init(&sam_alignment, SAM_SEQ_MAX_CHARS);
     
@@ -222,42 +211,16 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 		alignment_behind_call(vcf_call, sam_buff->alignments[c]); ++c)
     {
 #ifdef DEBUG
-	/*
-	if ( vcf_call->pos == 800909 )
-	    fprintf(stderr, "skip() unbuffer loop: #46 = %s,%zu\n",
-		    SAM_RNAME(sam_buff->alignments[46]),
-		    SAM_POS(sam_buff->alignments[46]));
-	*/
 	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu behind %s,%zu\n",
 		c, SAM_RNAME(sam_buff->alignments[c]),
 		SAM_POS(sam_buff->alignments[c]),
 		VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
 #endif
-	/*
-	 *  It's possible that next alignment to occupy this element will have
-	 *  a different seq_len, so free it and force sam_alignment_copy()
-	 *  to allocate again.
-	 */
-	sam_alignment_free(sam_buff->alignments[c]);
-	sam_alignment_init(sam_buff->alignments[c], 0);
-    }
-    for (c2 = c; c2 < sam_buff->count; ++c2)
-    {
-	/*
-	fprintf(stderr, "Moving %zu to %zu %s,%zu\n", c2, c2 - c,
-		SAM_RNAME(sam_buff->alignments[c2]),
-		SAM_POS(sam_buff->alignments[c2]));
-	*/
-	sam_buff->alignments[c2 - c] = sam_buff->alignments[c2];
     }
     
-    // Clear vacated spots so they'll be properly allocated when reused
-    for (c2 = c; c2 < sam_buff->count; ++c2)
-	sam_alignment_init(sam_buff->alignments[c2], 0);
-    
-    sam_buff->count -= c;
-    //fprintf(stderr, "Reduced count by %zu to %zu\n", c, sam_buff->count);
-    //fprintf(stderr, "skip(): %zu alignments remaining.\n", sam_buff->count);
+    /* If anything to unbuffer, shift */
+    if ( c > 0 )
+	sam_buff_shift(sam_buff, c);
     
     /*
      *  Read alignments from the stream until we find one that's not behind
@@ -316,7 +279,6 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
     if ( sam_alignment.seq == NULL )
 	sam_alignment_init(&sam_alignment, SAM_SEQ_MAX_CHARS);
 
-    //fprintf(stderr, "depth(): %zu alignments in buffer.\n", sam_buff->count);
     /* Check and discard already buffered alignments */
     for (c = 0; (c < sam_buff->count) &&
 		(cai = call_in_alignment(vcf_call, sam_buff->alignments[c]));
@@ -330,7 +292,6 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 #endif
 	update_allele_count(vcf_call, sam_buff->alignments[c], vcf_out_stream);
     }
-    //fprintf(stderr, "depth(): End of buffer at %zu.\n", c);
     
     if ( (c == 0) || cai )
     {
@@ -342,30 +303,8 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 	    fprintf(stderr, "depth(): Buffering new alignment #%zu %s,%zu,%zu\n",
 		    sam_buff->count, SAM_RNAME(&sam_alignment),
 		    SAM_POS(&sam_alignment), SAM_SEQ_LEN(&sam_alignment));
-	    /* Fixed by reinitializing vacated alignments after unbuffer
-	    if ( c == 46 )
-	    {
-		fprintf(stderr, "depth() loop: #45 = %s,%zu\n",
-			SAM_RNAME(sam_buff->alignments[45]),
-			SAM_POS(sam_buff->alignments[45]));
-		fprintf(stderr, "depth() loop: #46 = %s,%zu\n",
-			SAM_RNAME(sam_buff->alignments[46]),
-			SAM_POS(sam_buff->alignments[46]));
-	    }
-	    */
 #endif
 	    sam_buff_add_alignment(sam_buff, &sam_alignment);
-	    /* Fixed by reinitializing vacated alignments after unbuffer
-	    if ( c == 46 )
-	    {
-		fprintf(stderr, "depth() loop: #45 = %s,%zu\n",
-			SAM_RNAME(sam_buff->alignments[45]),
-			SAM_POS(sam_buff->alignments[45]));
-		fprintf(stderr, "depth() loop: #46 = %s,%zu\n",
-			SAM_RNAME(sam_buff->alignments[46]),
-			SAM_POS(sam_buff->alignments[46]));
-	    }
-	    */
 	    
 	    if ( call_in_alignment(vcf_call, &sam_alignment) )
 	    {
@@ -426,22 +365,14 @@ bool    call_in_alignment(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
 bool    alignment_behind_call(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
 
 {
-    /*
-    fprintf(stderr, "%s %s %zu %zu %zu\n",
-	    SAM_RNAME(sam_alignment), VCF_CHROMOSOME(vcf_call),
-	    SAM_POS(sam_alignment), SAM_SEQ_LEN(sam_alignment),
-	    VCF_POS(vcf_call));
-    */
     if ( (strcmp(SAM_RNAME(sam_alignment), VCF_CHROMOSOME(vcf_call)) == 0) &&
 	 (SAM_POS(sam_alignment) + SAM_SEQ_LEN(sam_alignment) <=
 	  VCF_POS(vcf_call)) )
     {
-	//fputs("pos\n", stderr);
 	return true;
     }
     else if ( chromosome_name_cmp(SAM_RNAME(sam_alignment), VCF_CHROMOSOME(vcf_call)) < 0 )
     {
-	//fputs("name\n", stderr);
 	return true;
     }
     else
@@ -467,11 +398,7 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
     allele = SAM_SEQ(sam_alignment)[VCF_POS(vcf_call) - SAM_POS(sam_alignment)];
 #ifdef DEBUG
     char            *atype;
-    /*
-    fprintf(stderr, "===\n%s pos=%zu len=%zu %s\n",
-	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
-	    SAM_SEQ_LEN(sam_alignment), SAM_SEQ(sam_alignment));
-    */
+
     atype = allele == *VCF_REF(vcf_call) ? "ref" :
 	allele == *VCF_ALT(vcf_call) ? "alt" : "other";
     fprintf(stderr, "Found \"%s\" allele %c at pos %zu in seq %s,%zu for call %s,%zu.\n",
@@ -503,11 +430,6 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 void    sam_buff_check_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment)
 
 {
-    /*
-    fprintf(stderr, "Checking sam order %s,%zu %s,%zu\n",
-	    sam_buff->previous_rname, sam_buff->previous_pos,
-	    sam_alignment->rname, sam_alignment->pos);
-    */
     if ( strcmp(sam_alignment->rname, sam_buff->previous_rname) == 0 )
     {
 	if (sam_alignment->pos >= sam_buff->previous_pos )
@@ -560,6 +482,13 @@ void    sam_buff_init(sam_buff_t *sam_buff)
 void    sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment)
 
 {
+    if (sam_buff->count == SAM_BUFF_MAX_ALIGNMENTS )
+    {
+	fprintf(stderr, "sam_buff_add_alignment(): Hit SAM_BUFF_MAX_ALIGNMENTS\n");
+	fprintf(stderr, "Increase value in head and recompile.\n");
+	exit(EX_SOFTWARE);
+    }
+    
     if ( sam_buff->alignments[sam_buff->count] == NULL )
     {
 	//fprintf(stderr, "Allocating alignment #%zu\n", sam_buff->count);
@@ -569,44 +498,16 @@ void    sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignm
 	    fprintf(stderr, "sam_buff_add_alignment(): malloc() failed.\n");
 	    exit(EX_UNAVAILABLE);
 	}
+	sam_alignment_init(sam_buff->alignments[sam_buff->count], 0);
     }
-    /* Fixed by reinitializing vacated alignments after unbuffer
-    if ( sam_buff->count == 46 )
-    {
-	fprintf(stderr, "add() before copy(): #45 = %s,%zu\n",
-		SAM_RNAME(sam_buff->alignments[45]),
-		SAM_POS(sam_buff->alignments[45]));
-	fprintf(stderr, "%p %p\n", sam_buff->alignments[45],
-		sam_buff->alignments[46]);
-    }
-    */
-    sam_alignment_free(sam_buff->alignments[sam_buff->count]);
-    sam_alignment_copy(sam_buff->alignments[sam_buff->count], sam_alignment);
-    /* Fixed by reinitializing vacated alignments after unbuffer
-    if ( sam_buff->count == 46 )
-	fprintf(stderr, "add() after copy(): #45 = %s,%zu\n",
-		SAM_RNAME(sam_buff->alignments[45]),
-		SAM_POS(sam_buff->alignments[45]));
-    fprintf(stderr, "Added alignment #%zu %s,%zu seq_len = %zu/%zu\n",
-	    sam_buff->count,
-	    SAM_RNAME(sam_buff->alignments[sam_buff->count]),
-	    SAM_POS(sam_buff->alignments[sam_buff->count]),
-	    strlen(SAM_SEQ(sam_buff->alignments[sam_buff->count])),
-	    SAM_SEQ_LEN(sam_buff->alignments[sam_buff->count]));
-    */
+    else
+	sam_alignment_free(sam_buff->alignments[sam_buff->count]);
     
-    if (sam_buff->count == SAM_BUFF_MAX_ALIGNMENTS )
-    {
-	fprintf(stderr, "sam_buff_add_alignment(): Hit SAM_BUFF_MAX_ALIGNMENTS\n");
-	fprintf(stderr, "Increase value in head and recompile.\n");
-	exit(EX_SOFTWARE);
-    }
+    sam_alignment_copy(sam_buff->alignments[sam_buff->count], sam_alignment);
+    
     ++sam_buff->count;
     if ( sam_buff->count > sam_buff->max_count )
-    {
 	sam_buff->max_count = sam_buff->count;
-	//fprintf(stderr, "sam_buff->max_count = %zu\n", sam_buff->max_count);
-    }
 }
 
 
@@ -649,3 +550,56 @@ void    vcf_out_of_order(vcf_call_t *vcf_call,
 	    previous_chromosome, previous_pos);
     exit(EX_DATAERR);
 }
+
+
+/***************************************************************************
+ *  Description:
+ *      Free an element of the SAM alignment array
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-29  Jason Bacon Begin
+ ***************************************************************************/
+
+void    sam_buff_free_alignment(sam_buff_t *sam_buff, size_t c)
+
+{
+    sam_alignment_free(sam_buff->alignments[c]);
+    sam_alignment_init(sam_buff->alignments[c], 0);
+    if ( sam_buff->alignments[c] != NULL )
+    {
+	free(sam_buff->alignments[c]);
+	sam_buff->alignments[c] = NULL;
+    }
+}
+
+
+/***************************************************************************
+ *  Description:
+ *      Shift SAM array elements up c positions.
+ *
+ *  History: 
+ *  Date        Name        Modification
+ *  2020-05-29  Jason Bacon Begin
+ ***************************************************************************/
+
+void    sam_buff_shift(sam_buff_t *sam_buff, size_t c)
+
+{
+    size_t  c2;
+
+    /* Make sure elements to be removed are freed */
+    for (c2 = 0; c2 < c; ++c2)
+	sam_buff_free_alignment(sam_buff, c2);
+
+    /* Shift elements */
+    for (c2 = 0; c2 < sam_buff->count - c; ++c2)
+	sam_buff->alignments[c2] = sam_buff->alignments[c2 + c];
+    
+    /* Clear vacated elements */
+    while ( c2 < sam_buff->count )
+	sam_buff->alignments[c2++] = NULL;
+    
+    sam_buff->count -= c;
+}
+
