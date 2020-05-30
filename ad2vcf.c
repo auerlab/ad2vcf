@@ -161,7 +161,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	fputc('\n', vcf_out_stream);
 #endif
 	fprintf(vcf_out_stream,
-		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u:%u\n",
+		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u,%u:%u\n",
 		VCF_CHROMOSOME(&vcf_call), VCF_POS(&vcf_call),
 		VCF_REF(&vcf_call),
 		VCF_ALT(&vcf_call),
@@ -169,6 +169,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		VCF_SINGLE_SAMPLE(&vcf_call),
 		VCF_REF_COUNT(&vcf_call),
 		VCF_ALT_COUNT(&vcf_call),
+		VCF_OTHER_COUNT(&vcf_call),
 		VCF_REF_COUNT(&vcf_call) + VCF_ALT_COUNT(&vcf_call));
     }
     
@@ -177,6 +178,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	pclose(vcf_in_stream);
     else
 	fclose(vcf_in_stream);
+    
     return EX_OK;
 }
 
