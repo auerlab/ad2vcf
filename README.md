@@ -9,8 +9,8 @@ a pipe:
 
 ```sh
 samtools view -@ 2 --input-fmt-option required_fields=0x208 \
-        ../SRR6990379/NWD102903.b38.irc.v1.cram \
-        | ./ad2vcf file.vcf
+	../SRR6990379/NWD102903.b38.irc.v1.cram \
+	| ./ad2vcf file.vcf
 ```
 
 ad2vcf is written entirely in C and attempts to optimize CPU, memory,
@@ -33,9 +33,9 @@ unless using a POSIX environment such as Cygwin or Windows Subsystem for Linux.
 
 Building and installing:
 
-vcf-split depends on [vcfio](https://github.com/auerlab/vcfio).
+vcf-split depends on [biolibc](https://github.com/auerlab/biolibc).
 
-Set LOCALBASE to the prefix of lib/libvcfio.a.  Default is ../local.
+Set LOCALBASE to the prefix of lib/libbiolibc.a.  Default is ../local.
 (See Makefile).
 
 Set PREFIX to the prefix where you would like to install.  Default is
