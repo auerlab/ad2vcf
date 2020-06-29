@@ -33,7 +33,7 @@ unless using a POSIX environment such as Cygwin or Windows Subsystem for Linux.
 
 Building and installing:
 
-vcf-split depends on [biolibc](https://github.com/auerlab/biolibc).
+ad2vcf depends on [biolibc](https://github.com/auerlab/biolibc).
 
 Set LOCALBASE to the prefix of lib/libbiolibc.a.  Default is ../local.
 (See Makefile).
