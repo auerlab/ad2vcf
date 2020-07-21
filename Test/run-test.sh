@@ -13,11 +13,11 @@ printf "\n======================================================================
 printf "The following 4 tests should fail with complaints about input sorting.\n"
 
 set +e
-printf "===\n"
+printf "=== test-bad-pos.vcf\n"
 ../ad2vcf test-bad-pos.vcf < test.sam
-printf "===\n"
+printf "=== test-bad-chr.vcf\n"
 ../ad2vcf test-bad-chr.vcf < test.sam
-printf "===\n"
+printf "=== test-bad-pos.sam\n"
 ../ad2vcf test.vcf < test-bad-pos.sam
-printf "===\n"
+printf "=== test-bad-chr.sam\n"
 ../ad2vcf test.vcf < test-bad-chr.sam

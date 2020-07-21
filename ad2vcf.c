@@ -274,7 +274,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 
 {
     size_t          c;
-    bool            ma = true, cai = true;
+    bool            ma = true, cia = true;
     // static so sam_alignment_read() won't keep reallocating seq
     static sam_alignment_t sam_alignment = SAM_ALIGNMENT_INIT;
 
@@ -283,7 +283,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 
     /* Check and discard already buffered alignments */
     for (c = 0; (c < sam_buff->count) &&
-		(cai = call_in_alignment(vcf_call, sam_buff->alignments[c]));
+		(cia = call_in_alignment(vcf_call, sam_buff->alignments[c]));
 		++c)
     {
 #ifdef DEBUG
@@ -295,7 +295,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 	update_allele_count(vcf_call, sam_buff->alignments[c], vcf_out_stream);
     }
     
-    if ( (c == 0) || cai )
+    if ( (c == 0) || cia )
     {
 	/* Read and buffer more alignments from the stream */
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
@@ -432,12 +432,16 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 void    sam_buff_check_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment)
 
 {
+    fprintf(stderr, "Previous SAM: %s %zu, Current SAM: %s %zu\n",
+	    sam_buff->previous_rname, sam_buff->previous_pos,
+	    sam_alignment->rname, sam_alignment->pos);
     if ( strcmp(sam_alignment->rname, sam_buff->previous_rname) == 0 )
     {
-	if (sam_alignment->pos >= sam_buff->previous_pos )
-	    sam_buff->previous_pos = sam_alignment->pos;
-	else
+	// Silly to assign when ==, but sillier to add another check
+	if (sam_alignment->pos < sam_buff->previous_pos )
 	    sam_buff_out_of_order(sam_buff, sam_alignment);
+	else
+	    sam_buff->previous_pos = sam_alignment->pos;
     }
     else if ( chromosome_name_cmp(sam_alignment->rname, sam_buff->previous_rname) < 0 )
 	sam_buff_out_of_order(sam_buff, sam_alignment);
