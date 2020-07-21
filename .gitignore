@@ -1,3 +1,4 @@
 .*.bak
 ad2vcf
 *.o
+Test/*-ad.vcf

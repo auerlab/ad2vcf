@@ -213,7 +213,7 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 		alignment_behind_call(vcf_call, sam_buff->alignments[c]); ++c)
     {
 #ifdef DEBUG
-	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu behind %s,%zu\n",
+	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu behind variant %s,%zu\n",
 		c, SAM_RNAME(sam_buff->alignments[c]),
 		SAM_POS(sam_buff->alignments[c]),
 		VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
@@ -233,25 +233,28 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
     {
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
+	    /*fprintf(stderr, "sam_alignment_read(): %s,%zu,%zu\n",
+		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+		    SAM_SEQ_LEN(&sam_alignment));*/
 	    sam_buff_check_order(sam_buff, &sam_alignment);
+#ifdef DEBUG
+	    fprintf(stderr, "skip(): Buffering alignment #%zu %s,%zu,%zu\n",
+			sam_buff->count,
+			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+			SAM_SEQ_LEN(&sam_alignment));
+#endif
+	    sam_buff_add_alignment(sam_buff, &sam_alignment);
 	    
 	    if ( ! alignment_behind_call(vcf_call, &sam_alignment) )
 		break;
 #ifdef DEBUG
 	    else
-		fprintf(stderr, "skip(): Skipping new alignment %s,%zu behind %s,%zu\n",
+		fprintf(stderr, "skip(): Skipping new alignment %s,%zu behind variant %s,%zu\n",
 			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 			VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
 #endif
 	}
 
-#ifdef DEBUG
-	fprintf(stderr, "skip(): Buffering alignment #%zu %s,%zu,%zu\n",
-		    sam_buff->count,
-		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-		    SAM_SEQ_LEN(&sam_alignment));
-#endif
-	sam_buff_add_alignment(sam_buff, &sam_alignment);
     }
 
     return ma;
@@ -300,6 +303,9 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 	/* Read and buffer more alignments from the stream */
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
+	    /*fprintf(stderr, "sam_alignment_read(): Read %s,%zu,%zu\n",
+		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+		    SAM_SEQ_LEN(&sam_alignment));*/
 	    sam_buff_check_order(sam_buff, &sam_alignment);
 #ifdef DEBUG
 	    fprintf(stderr, "depth(): Buffering new alignment #%zu %s,%zu,%zu\n",
@@ -367,6 +373,10 @@ bool    call_in_alignment(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
 bool    alignment_behind_call(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
 
 {
+    /*fprintf(stderr, "alignment_behind_call(): %s,%zu,%zu %s,%zu\n",
+	    SAM_RNAME(sam_alignment),SAM_POS(sam_alignment),
+	    SAM_SEQ_LEN(sam_alignment),
+	    VCF_CHROMOSOME(vcf_call),VCF_POS(vcf_call));*/
     if ( (strcmp(SAM_RNAME(sam_alignment), VCF_CHROMOSOME(vcf_call)) == 0) &&
 	 (SAM_POS(sam_alignment) + SAM_SEQ_LEN(sam_alignment) <=
 	  VCF_POS(vcf_call)) )
@@ -432,9 +442,9 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 void    sam_buff_check_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment)
 
 {
-    fprintf(stderr, "Previous SAM: %s %zu, Current SAM: %s %zu\n",
+    /*fprintf(stderr, "Previous SAM: %s %zu, Current SAM: %s %zu\n",
 	    sam_buff->previous_rname, sam_buff->previous_pos,
-	    sam_alignment->rname, sam_alignment->pos);
+	    sam_alignment->rname, sam_alignment->pos);*/
     if ( strcmp(sam_alignment->rname, sam_buff->previous_rname) == 0 )
     {
 	// Silly to assign when ==, but sillier to add another check
@@ -491,7 +501,7 @@ void    sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignm
     if (sam_buff->count == SAM_BUFF_MAX_ALIGNMENTS )
     {
 	fprintf(stderr, "sam_buff_add_alignment(): Hit SAM_BUFF_MAX_ALIGNMENTS\n");
-	fprintf(stderr, "Increase value in head and recompile.\n");
+	fprintf(stderr, "Increase value in header and recompile.\n");
 	exit(EX_SOFTWARE);
     }
     
