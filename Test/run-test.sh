@@ -14,6 +14,7 @@ if diff test-ad-correct.vcf test-ad.vcf; then
 else
     printf "Differences found.\n"
 fi
+mv test-ad.vcf test-ad-last.vcf
 
 cat << EOM
 
@@ -33,3 +34,4 @@ printf "=== test-bad-pos.sam\n"
 ../ad2vcf test.vcf < test-bad-pos.sam
 printf "=== test-bad-chr.sam\n"
 ../ad2vcf test.vcf < test-bad-chr.sam
+rm test-ad.vcf
