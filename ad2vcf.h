@@ -2,6 +2,11 @@
 #define     CMD_MAX                 128
 #define     SAM_BUFF_MAX_ALIGNMENTS 65536
 
+// FIXME: These should be command line arguments
+#define     MAPQ_MIN                10
+#define     PHRED_MIN               20
+#define     PHRED_BASE              33
+
 // FIXME: Move this to samio when complete?
 typedef struct
 {

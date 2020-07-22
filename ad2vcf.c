@@ -70,7 +70,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    previous_vcf_chromosome[VCF_CHROMOSOME_MAX_CHARS + 1] = "",
 		    *ext;
     const char      *vcf_filename = argv[1];
-    
+
     xz = ((ext = strstr(vcf_filename,".xz")) != NULL) && (ext[3] == '\0');
     if ( xz )
     {
@@ -237,22 +237,31 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 		    SAM_SEQ_LEN(&sam_alignment));*/
 	    sam_buff_check_order(sam_buff, &sam_alignment);
-#ifdef DEBUG
-	    fprintf(stderr, "skip(): Buffering alignment #%zu %s,%zu,%zu\n",
-			sam_buff->count,
-			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-			SAM_SEQ_LEN(&sam_alignment));
-#endif
-	    sam_buff_add_alignment(sam_buff, &sam_alignment);
 	    
-	    if ( ! alignment_behind_call(vcf_call, &sam_alignment) )
-		break;
-#ifdef DEBUG
+	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
+	    {
+		fprintf(stderr, "Discarding low quality read: %s,%zu\n",
+			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment));
+	    }
 	    else
-		fprintf(stderr, "skip(): Skipping new alignment %s,%zu behind variant %s,%zu\n",
-			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-			VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
+	    {
+#ifdef DEBUG
+		fprintf(stderr, "skip(): Buffering alignment #%zu %s,%zu,%zu\n",
+			    sam_buff->count,
+			    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+			    SAM_SEQ_LEN(&sam_alignment));
 #endif
+		sam_buff_add_alignment(sam_buff, &sam_alignment);
+		
+		if ( ! alignment_behind_call(vcf_call, &sam_alignment) )
+		    break;
+#ifdef DEBUG
+		else
+		    fprintf(stderr, "skip(): Skipping new alignment %s,%zu behind variant %s,%zu\n",
+			    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+			    VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
+#endif
+	    }
 	}
 
     }
@@ -263,9 +272,9 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 
 /***************************************************************************
  *  Description:
- *      Scan alignments in the SAM stream that encompass the given
- *      chromosome and position and update ref_count and alt_count
- *      for the VCF call.
+ *      Scan alignments in the SAM stream that encompass the given variant
+ *      chromosome and position and update ref_count and alt_count for the
+ *      VCF call.
  *
  *  History: 
  *  Date        Name        Modification
@@ -307,29 +316,38 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 		    SAM_SEQ_LEN(&sam_alignment));*/
 	    sam_buff_check_order(sam_buff, &sam_alignment);
-#ifdef DEBUG
-	    fprintf(stderr, "depth(): Buffering new alignment #%zu %s,%zu,%zu\n",
-		    sam_buff->count, SAM_RNAME(&sam_alignment),
-		    SAM_POS(&sam_alignment), SAM_SEQ_LEN(&sam_alignment));
-#endif
-	    sam_buff_add_alignment(sam_buff, &sam_alignment);
-	    
-	    if ( call_in_alignment(vcf_call, &sam_alignment) )
+
+	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
 	    {
-#ifdef DEBUG
-		fprintf(stderr, "depth(): Counting new alignment %s,%zu containing call %s,%zu\n",
-			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-			VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
-#endif
-		update_allele_count(vcf_call, &sam_alignment, vcf_out_stream);
+		fprintf(stderr, "Discarding low quality read: %s,%zu\n",
+			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment));
 	    }
 	    else
 	    {
 #ifdef DEBUG
-		fprintf(stderr, "depth(): Does not contain call %s,%zu\n",
-			VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
+		fprintf(stderr, "depth(): Buffering new alignment #%zu %s,%zu,%zu\n",
+			sam_buff->count, SAM_RNAME(&sam_alignment),
+			SAM_POS(&sam_alignment), SAM_SEQ_LEN(&sam_alignment));
 #endif
-		break;
+		sam_buff_add_alignment(sam_buff, &sam_alignment);
+		
+		if ( call_in_alignment(vcf_call, &sam_alignment) )
+		{
+#ifdef DEBUG
+		    fprintf(stderr, "depth(): Counting new alignment %s,%zu containing call %s,%zu\n",
+			    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+			    VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
+#endif
+		    update_allele_count(vcf_call, &sam_alignment, vcf_out_stream);
+		}
+		else
+		{
+#ifdef DEBUG
+		    fprintf(stderr, "depth(): Does not contain call %s,%zu\n",
+			    VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
+#endif
+		    break;
+		}
 	    }
 	}
     }
@@ -405,9 +423,23 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 			   FILE *vcf_out_stream)
 
 {
-    unsigned char   allele;
+    unsigned char   allele, phred;
+    size_t          position_in_sequence;
     
-    allele = SAM_SEQ(sam_alignment)[VCF_POS(vcf_call) - SAM_POS(sam_alignment)];
+    position_in_sequence = VCF_POS(vcf_call) - SAM_POS(sam_alignment);
+    if ( SAM_QUAL_LEN(sam_alignment) == SAM_SEQ_LEN(sam_alignment) )
+    {
+	phred = SAM_QUAL(sam_alignment)[position_in_sequence];
+	if ( phred < PHRED_BASE + PHRED_MIN )
+	{
+	    fprintf(stderr, "Discarding low-quality base: %s,%zu,%zu = %u ('%c')\n",
+		    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
+		    position_in_sequence, phred - PHRED_BASE, phred);
+	    return;
+	}
+    }
+    
+    allele = SAM_SEQ(sam_alignment)[position_in_sequence];
 #ifdef DEBUG
     char            *atype;
 
@@ -505,6 +537,7 @@ void    sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignm
 	exit(EX_SOFTWARE);
     }
     
+    // Just allocate the static fields, sam_alignment_copy() does the rest
     if ( sam_buff->alignments[sam_buff->count] == NULL )
     {
 	//fprintf(stderr, "Allocating alignment #%zu\n", sam_buff->count);
