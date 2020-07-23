@@ -437,6 +437,7 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 		    position_in_sequence, phred - PHRED_BASE, phred);
 	    return;
 	}
+	vcf_add_phred(vcf_call, phred);
     }
     
     allele = SAM_SEQ(sam_alignment)[position_in_sequence];
