@@ -113,7 +113,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 
     sam_buff_init(&sam_buff);
     
-    while ( vcf_read_ss_call(vcf_in_stream, &vcf_call, VCF_SAMPLE_MAX_CHARS) == VCF_READ_OK )
+    while ( vcf_read_ss_call(vcf_in_stream, &vcf_call, VCF_SAMPLE_MAX_CHARS) == VCF_OK )
     {
 	++vcf_calls_read;
 	
@@ -160,8 +160,11 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 #ifdef DEBUG
 	fputc('\n', vcf_out_stream);
 #endif
+	/* Compute stats on phred scoqres */
+	VCF_PHREDS(&vcf_call)[VCF_PHRED_COUNT(&vcf_call)] = '\0';
+	
 	fprintf(vcf_out_stream,
-		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u,%u:%u\n",
+		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP:PH\t%s:%u,%u,%u:%u:%s\n",
 		VCF_CHROMOSOME(&vcf_call), VCF_POS(&vcf_call),
 		VCF_REF(&vcf_call),
 		VCF_ALT(&vcf_call),
@@ -170,7 +173,10 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		VCF_REF_COUNT(&vcf_call),
 		VCF_ALT_COUNT(&vcf_call),
 		VCF_OTHER_COUNT(&vcf_call),
-		VCF_REF_COUNT(&vcf_call) + VCF_ALT_COUNT(&vcf_call));
+		VCF_REF_COUNT(&vcf_call) + VCF_ALT_COUNT(&vcf_call),
+		VCF_PHREDS(&vcf_call));
+
+	vcf_phred_free(&vcf_call);
     }
     
     fprintf(stderr, "Max buffered alignments: %zu\n", sam_buff.max_count);
@@ -437,7 +443,7 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 		    position_in_sequence, phred - PHRED_BASE, phred);
 	    return;
 	}
-	vcf_add_phred(vcf_call, phred);
+	vcf_phred_add(vcf_call, phred);
     }
     
     allele = SAM_SEQ(sam_alignment)[position_in_sequence];

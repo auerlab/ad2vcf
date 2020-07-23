@@ -2,3 +2,4 @@
 ad2vcf
 *.o
 Test/*-ad.vcf
+Test/test-ad-last.vcf
