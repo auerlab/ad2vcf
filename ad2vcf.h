@@ -1,6 +1,6 @@
 
 #define     CMD_MAX                 128
-#define     SAM_BUFF_MAX_ALIGNMENTS 65536
+#define     SAM_BUFF_MAX_ALIGNMENTS 262144
 
 // FIXME: These should be command line arguments
 #define     MAPQ_MIN                10

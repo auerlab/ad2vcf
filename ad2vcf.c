@@ -83,7 +83,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     if ( vcf_in_stream == NULL )
     {
 	fprintf(stderr, "%s: Cannot open %s: %s\n", argv[0], argv[1],
-	    strerror(errno));
+		strerror(errno));
 	exit(EX_NOINPUT);
     }
 
@@ -111,6 +111,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	exit(EX_CANTCREAT);
     }
 
+    vcf_call_init(&vcf_call);
     sam_buff_init(&sam_buff);
     
     while ( vcf_read_ss_call(vcf_in_stream, &vcf_call, VCF_SAMPLE_MAX_CHARS) == VCF_OK )
@@ -160,11 +161,13 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 #ifdef DEBUG
 	fputc('\n', vcf_out_stream);
 #endif
-	/* Compute stats on phred scoqres */
-	VCF_PHREDS(&vcf_call)[VCF_PHRED_COUNT(&vcf_call)] = '\0';
+	/* Compute stats on phred scores */
+	qsort(VCF_PHREDS(&vcf_call), VCF_PHRED_COUNT(&vcf_call), 1,
+	      (int (*)(const void *, const void *))uchar_cmp);
 	
+	//fprintf(stderr, "%s\n", VCF_PHREDS(&vcf_call));
 	fprintf(vcf_out_stream,
-		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP:PH\t%s:%u,%u,%u:%u:%s\n",
+		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP:PH\t%s:%u,%u,%u:%u:%s,%c,%c\n",
 		VCF_CHROMOSOME(&vcf_call), VCF_POS(&vcf_call),
 		VCF_REF(&vcf_call),
 		VCF_ALT(&vcf_call),
@@ -174,9 +177,12 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		VCF_ALT_COUNT(&vcf_call),
 		VCF_OTHER_COUNT(&vcf_call),
 		VCF_REF_COUNT(&vcf_call) + VCF_ALT_COUNT(&vcf_call),
-		VCF_PHREDS(&vcf_call));
+		VCF_PHREDS(&vcf_call),
+		VCF_PHRED_VAL(&vcf_call,0),
+		VCF_PHRED_VAL(&vcf_call,VCF_PHRED_COUNT(&vcf_call)/4));
 
-	vcf_phred_free(&vcf_call);
+	//vcf_phred_free(&vcf_call);
+	vcf_phred_blank(&vcf_call);
     }
     
     fprintf(stderr, "Max buffered alignments: %zu\n", sam_buff.max_count);
@@ -239,25 +245,19 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
     {
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
-	    /*fprintf(stderr, "sam_alignment_read(): %s,%zu,%zu\n",
+	    /*fprintf(stderr, "sam_alignment_read(): %s,%zu,%zu,%zu\n",
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-		    SAM_SEQ_LEN(&sam_alignment));*/
-	    sam_buff_check_order(sam_buff, &sam_alignment);
+		    SAM_SEQ_LEN(&sam_alignment), SAM_QUAL_LEN(&sam_alignment));*/
 	    
 	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
 	    {
+#ifdef DEBUG
 		fprintf(stderr, "Discarding low quality read: %s,%zu\n",
 			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment));
+#endif
 	    }
 	    else
 	    {
-#ifdef DEBUG
-		fprintf(stderr, "skip(): Buffering alignment #%zu %s,%zu,%zu\n",
-			    sam_buff->count,
-			    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-			    SAM_SEQ_LEN(&sam_alignment));
-#endif
-		sam_buff_add_alignment(sam_buff, &sam_alignment);
 		
 		if ( ! alignment_behind_call(vcf_call, &sam_alignment) )
 		    break;
@@ -269,7 +269,13 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 #endif
 	    }
 	}
-
+#ifdef DEBUG
+		fprintf(stderr, "skip(): Buffering alignment #%zu %s,%zu,%zu\n",
+			    sam_buff->count,
+			    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+			    SAM_SEQ_LEN(&sam_alignment));
+#endif
+		sam_buff_add_alignment(sam_buff, &sam_alignment);
     }
 
     return ma;
@@ -321,12 +327,12 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 	    /*fprintf(stderr, "sam_alignment_read(): Read %s,%zu,%zu\n",
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 		    SAM_SEQ_LEN(&sam_alignment));*/
-	    sam_buff_check_order(sam_buff, &sam_alignment);
-
 	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
 	    {
+#ifdef DEBUG
 		fprintf(stderr, "Discarding low quality read: %s,%zu\n",
 			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment));
+#endif
 	    }
 	    else
 	    {
@@ -433,14 +439,18 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
     size_t          position_in_sequence;
     
     position_in_sequence = VCF_POS(vcf_call) - SAM_POS(sam_alignment);
+    /*fprintf(stderr, "%zu %zu %zu\n", position_in_sequence,
+	    SAM_QUAL_LEN(sam_alignment), SAM_SEQ_LEN(sam_alignment));*/
     if ( SAM_QUAL_LEN(sam_alignment) == SAM_SEQ_LEN(sam_alignment) )
     {
 	phred = SAM_QUAL(sam_alignment)[position_in_sequence];
 	if ( phred < PHRED_BASE + PHRED_MIN )
 	{
+#ifdef DEBUG
 	    fprintf(stderr, "Discarding low-quality base: %s,%zu,%zu = %u ('%c')\n",
 		    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
 		    position_in_sequence, phred - PHRED_BASE, phred);
+#endif
 	    return;
 	}
 	vcf_phred_add(vcf_call, phred);
@@ -537,6 +547,8 @@ void    sam_buff_init(sam_buff_t *sam_buff)
 void    sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment)
 
 {
+    sam_buff_check_order(sam_buff, sam_alignment);
+    
     if (sam_buff->count == SAM_BUFF_MAX_ALIGNMENTS )
     {
 	fprintf(stderr, "sam_buff_add_alignment(): Hit SAM_BUFF_MAX_ALIGNMENTS\n");
@@ -659,3 +671,9 @@ void    sam_buff_shift(sam_buff_t *sam_buff, size_t c)
     sam_buff->count -= c;
 }
 
+
+int     uchar_cmp(unsigned char *c1, unsigned char *c2)
+
+{
+    return *c1 - *c2;
+}

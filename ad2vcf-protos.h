@@ -14,4 +14,5 @@ void sam_buff_out_of_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment)
 void vcf_out_of_order(vcf_call_t *vcf_call, char *previous_chromosome, size_t previous_pos);
 void sam_buff_free_alignment(sam_buff_t *sam_buff, size_t c);
 void sam_buff_shift(sam_buff_t *sam_buff, size_t c);
+int uchar_cmp(unsigned char *c1, unsigned char *c2);
 
