@@ -63,8 +63,9 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     sam_buff_t      sam_buff;
     bool            xz = false,
 		    more_alignments;
-    size_t          vcf_calls_read = 0,
-		    previous_vcf_pos = 0;
+    size_t          previous_vcf_pos,
+		    total_alleles;
+    ad2vcf_stats_t  stats = AD2VCF_STATS_INIT;
     char            cmd[CMD_MAX + 1],
 		    vcf_out_filename[PATH_MAX + 1],
 		    previous_vcf_chromosome[VCF_CHROMOSOME_MAX_CHARS + 1] = "",
@@ -116,7 +117,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     
     while ( vcf_read_ss_call(vcf_in_stream, &vcf_call, VCF_SAMPLE_MAX_CHARS) == VCF_OK )
     {
-	++vcf_calls_read;
+	++stats.total_vcf_calls;
 	
 #ifdef DEBUG
 	fprintf(stderr, "\n=========================\n");
@@ -150,12 +151,13 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	}
 	
 	/* Skip SAM alignments that don't include this position */
-	more_alignments = skip_past_alignments(&vcf_call, sam_stream,
-					       &sam_buff, vcf_out_stream);
+	more_alignments = skip_upstream_alignments(&vcf_call, sam_stream,
+					       &sam_buff, vcf_out_stream,
+					       &stats);
 	
 	/* Scan SAM alignments that include this position and count alleles */
 	if ( more_alignments )
-	    allelic_depth(&vcf_call, sam_stream, &sam_buff, vcf_out_stream);
+	    allelic_depth(&vcf_call, sam_stream, &sam_buff, vcf_out_stream, &stats);
 	
 	/* Output record with allelic depth */
 #ifdef DEBUG
@@ -167,7 +169,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	
 	//fprintf(stderr, "%s\n", VCF_PHREDS(&vcf_call));
 	fprintf(vcf_out_stream,
-		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP:PH\t%s:%u,%u,%u:%u:%s,%c,%c\n",
+		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP:PH\t%s:%u,%u,%u:%u:%c,%c,%c\n",
 		VCF_CHROMOSOME(&vcf_call), VCF_POS(&vcf_call),
 		VCF_REF(&vcf_call),
 		VCF_ALT(&vcf_call),
@@ -177,15 +179,32 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		VCF_ALT_COUNT(&vcf_call),
 		VCF_OTHER_COUNT(&vcf_call),
 		VCF_REF_COUNT(&vcf_call) + VCF_ALT_COUNT(&vcf_call),
-		VCF_PHREDS(&vcf_call),
 		VCF_PHRED_VAL(&vcf_call,0),
-		VCF_PHRED_VAL(&vcf_call,VCF_PHRED_COUNT(&vcf_call)/4));
+		VCF_PHRED_VAL(&vcf_call,VCF_PHRED_COUNT(&vcf_call)/4),
+		VCF_PHRED_VAL(&vcf_call,VCF_PHRED_COUNT(&vcf_call)/2));
 
-	//vcf_phred_free(&vcf_call);
 	vcf_phred_blank(&vcf_call);
     }
     
     fprintf(stderr, "Max buffered alignments: %zu\n", sam_buff.max_count);
+    fprintf(stderr, "%zu VCF calls processed.\n", stats.total_vcf_calls);
+    fprintf(stderr, "%zu SAM alignments processed.\n",
+	    stats.total_sam_alignments);
+    fprintf(stderr, "%zu SAM alignments discarded (%zu%%).\n",
+	    stats.discarded_sam_alignments, 
+	    stats.discarded_sam_alignments * 100 / stats.total_sam_alignments);
+    fprintf(stderr, "%zu bases discarded.\n", stats.discarded_bases);
+    total_alleles = stats.total_ref_alleles + stats.total_alt_alleles +
+		    stats.total_other_alleles;
+    fprintf(stderr, "%zu total REF alleles (%zu%%).\n",
+	    stats.total_ref_alleles,
+	    stats.total_ref_alleles * 100 / total_alleles);
+    fprintf(stderr, "%zu total ALT alleles (%zu%%).\n",
+	    stats.total_alt_alleles,
+	    stats.total_alt_alleles * 100 / total_alleles);
+    fprintf(stderr, "%zu total OTHER alleles (%zu%%).\n",
+	    stats.total_other_alleles,
+	    stats.total_other_alleles * 100 / total_alleles);
     if ( xz )
 	pclose(vcf_in_stream);
     else
@@ -204,8 +223,9 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
  *  2020-05-26  Jason Bacon Begin
  ***************************************************************************/
 
-bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
-			     sam_buff_t *sam_buff, FILE *vcf_out_stream)
+bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
+			     sam_buff_t *sam_buff, FILE *vcf_out_stream,
+			     ad2vcf_stats_t *stats)
 
 {
     size_t          c;
@@ -245,6 +265,7 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
     {
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
+	    ++stats->total_sam_alignments;
 	    /*fprintf(stderr, "sam_alignment_read(): %s,%zu,%zu,%zu\n",
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 		    SAM_SEQ_LEN(&sam_alignment), SAM_QUAL_LEN(&sam_alignment));*/
@@ -258,7 +279,10 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 	    }
 	    else
 	    {
-		
+		/*
+		 *  We're done when we find an alignment overlapping or after
+		 *  the VCF call
+		 */
 		if ( ! alignment_behind_call(vcf_call, &sam_alignment) )
 		    break;
 #ifdef DEBUG
@@ -270,12 +294,12 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 	    }
 	}
 #ifdef DEBUG
-		fprintf(stderr, "skip(): Buffering alignment #%zu %s,%zu,%zu\n",
-			    sam_buff->count,
-			    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-			    SAM_SEQ_LEN(&sam_alignment));
+	fprintf(stderr, "skip(): Buffering alignment #%zu %s,%zu,%zu\n",
+		    sam_buff->count,
+		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+		    SAM_SEQ_LEN(&sam_alignment));
 #endif
-		sam_buff_add_alignment(sam_buff, &sam_alignment);
+	sam_buff_add_alignment(sam_buff, &sam_alignment);
     }
 
     return ma;
@@ -294,11 +318,12 @@ bool    skip_past_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
  ***************************************************************************/
 
 bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
-		      sam_buff_t *sam_buff, FILE *vcf_out_stream)
+		      sam_buff_t *sam_buff, FILE *vcf_out_stream,
+		      ad2vcf_stats_t *stats)
 
 {
     size_t          c;
-    bool            ma = true, cia = true;
+    bool            ma = true, overlapping = true;
     // static so sam_alignment_read() won't keep reallocating seq
     static sam_alignment_t sam_alignment = SAM_ALIGNMENT_INIT;
 
@@ -307,7 +332,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 
     /* Check and discard already buffered alignments */
     for (c = 0; (c < sam_buff->count) &&
-		(cia = call_in_alignment(vcf_call, sam_buff->alignments[c]));
+		(overlapping = call_in_alignment(vcf_call, sam_buff->alignments[c]));
 		++c)
     {
 #ifdef DEBUG
@@ -316,19 +341,21 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 		SAM_POS(sam_buff->alignments[c]),
 		VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
 #endif
-	update_allele_count(vcf_call, sam_buff->alignments[c], vcf_out_stream);
+	update_allele_count(vcf_call, sam_buff->alignments[c], vcf_out_stream, stats);
     }
     
-    if ( (c == 0) || cia )
+    if ( (c == 0) || overlapping )
     {
 	/* Read and buffer more alignments from the stream */
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
+	    ++stats->total_sam_alignments;
 	    /*fprintf(stderr, "sam_alignment_read(): Read %s,%zu,%zu\n",
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 		    SAM_SEQ_LEN(&sam_alignment));*/
 	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
 	    {
+		++stats->discarded_sam_alignments;
 #ifdef DEBUG
 		fprintf(stderr, "Discarding low quality read: %s,%zu\n",
 			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment));
@@ -350,7 +377,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 			    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 			    VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
 #endif
-		    update_allele_count(vcf_call, &sam_alignment, vcf_out_stream);
+		    update_allele_count(vcf_call, &sam_alignment, vcf_out_stream, stats);
 		}
 		else
 		{
@@ -432,7 +459,7 @@ bool    alignment_behind_call(vcf_call_t *vcf_call, sam_alignment_t *sam_alignme
  ***************************************************************************/
 
 void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment,
-			   FILE *vcf_out_stream)
+			   FILE *vcf_out_stream, ad2vcf_stats_t *stats)
 
 {
     unsigned char   allele, phred;
@@ -446,6 +473,7 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 	phred = SAM_QUAL(sam_alignment)[position_in_sequence];
 	if ( phred < PHRED_BASE + PHRED_MIN )
 	{
+	    ++stats->discarded_bases;
 #ifdef DEBUG
 	    fprintf(stderr, "Discarding low-quality base: %s,%zu,%zu = %u ('%c')\n",
 		    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
@@ -471,11 +499,20 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
     putc(allele, vcf_out_stream);
 #endif
     if ( allele == *VCF_REF(vcf_call) )
+    {
 	++VCF_REF_COUNT(vcf_call);
+	++stats->total_ref_alleles;
+    }
     else if ( allele == *VCF_ALT(vcf_call) )
+    {
 	++VCF_ALT_COUNT(vcf_call);
+	++stats->total_alt_alleles;
+    }
     else
+    {
 	++VCF_OTHER_COUNT(vcf_call);
+	++stats->total_other_alleles;
+    }
 }
 
 
