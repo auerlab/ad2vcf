@@ -164,12 +164,14 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	fputc('\n', vcf_out_stream);
 #endif
 	/* Compute stats on phred scores */
+	/*
 	qsort(VCF_PHREDS(&vcf_call), VCF_PHRED_COUNT(&vcf_call), 1,
 	      (int (*)(const void *, const void *))uchar_cmp);
+	*/
 	
 	//fprintf(stderr, "%s\n", VCF_PHREDS(&vcf_call));
 	fprintf(vcf_out_stream,
-		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP:PH\t%s:%u,%u,%u:%u:%c,%c,%c\n",
+		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u,%u:%u\n",
 		VCF_CHROMOSOME(&vcf_call), VCF_POS(&vcf_call),
 		VCF_REF(&vcf_call),
 		VCF_ALT(&vcf_call),
@@ -178,12 +180,9 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		VCF_REF_COUNT(&vcf_call),
 		VCF_ALT_COUNT(&vcf_call),
 		VCF_OTHER_COUNT(&vcf_call),
-		VCF_REF_COUNT(&vcf_call) + VCF_ALT_COUNT(&vcf_call),
-		VCF_PHRED_VAL(&vcf_call,0),
-		VCF_PHRED_VAL(&vcf_call,VCF_PHRED_COUNT(&vcf_call)/4),
-		VCF_PHRED_VAL(&vcf_call,VCF_PHRED_COUNT(&vcf_call)/2));
+		VCF_REF_COUNT(&vcf_call) + VCF_ALT_COUNT(&vcf_call));
 
-	vcf_phred_blank(&vcf_call);
+	// vcf_phred_blank(&vcf_call);
     }
     
     fprintf(stderr, "Max buffered alignments: %zu\n", sam_buff.max_count);
@@ -193,7 +192,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     fprintf(stderr, "%zu SAM alignments discarded (%zu%%).\n",
 	    stats.discarded_sam_alignments, 
 	    stats.discarded_sam_alignments * 100 / stats.total_sam_alignments);
-    fprintf(stderr, "%zu bases discarded.\n", stats.discarded_bases);
+    // fprintf(stderr, "%zu bases discarded.\n", stats.discarded_bases);
     total_alleles = stats.total_ref_alleles + stats.total_alt_alleles +
 		    stats.total_other_alleles;
     fprintf(stderr, "%zu total REF alleles (%zu%%).\n",
@@ -462,12 +461,16 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 			   FILE *vcf_out_stream, ad2vcf_stats_t *stats)
 
 {
-    unsigned char   allele, phred;
+    unsigned char   allele;
     size_t          position_in_sequence;
     
     position_in_sequence = VCF_POS(vcf_call) - SAM_POS(sam_alignment);
+    allele = SAM_SEQ(sam_alignment)[position_in_sequence];
+    
     /*fprintf(stderr, "%zu %zu %zu\n", position_in_sequence,
 	    SAM_QUAL_LEN(sam_alignment), SAM_SEQ_LEN(sam_alignment));*/
+    
+#if 0
     if ( SAM_QUAL_LEN(sam_alignment) == SAM_SEQ_LEN(sam_alignment) )
     {
 	phred = SAM_QUAL(sam_alignment)[position_in_sequence];
@@ -475,7 +478,8 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 	{
 	    ++stats->discarded_bases;
 #ifdef DEBUG
-	    fprintf(stderr, "Discarding low-quality base: %s,%zu,%zu = %u ('%c')\n",
+	    fprintf(stderr,
+		    "Discarding low-quality base: %s,%zu,%zu = %u ('%c')\n",
 		    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
 		    position_in_sequence, phred - PHRED_BASE, phred);
 #endif
@@ -483,8 +487,8 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 	}
 	vcf_phred_add(vcf_call, phred);
     }
+#endif
     
-    allele = SAM_SEQ(sam_alignment)[position_in_sequence];
 #ifdef DEBUG
     char            *atype;
 

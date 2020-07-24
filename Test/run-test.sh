@@ -9,7 +9,7 @@ Comparing your results to the reference...
 ======================================================================
 
 EOM
-if diff test-ad-correct.vcf test-ad.vcf; then
+if diff -u test-ad-correct.vcf test-ad.vcf; then
     printf "No differences found.\n"
 else
     printf "Differences found.\n"
