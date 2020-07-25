@@ -201,9 +201,12 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     fprintf(stderr, "%zu SAM alignments processed.\n",
 	    stats.total_sam_alignments);
     fprintf(stderr, "Max buffered alignments: %zu\n", sam_buff.max_count);
-    fprintf(stderr, "%zu SAM alignments discarded (%zu%%).\n",
+    fprintf(stderr, "%zu SAM alignments discarded (%zu%%)\n",
 	    stats.discarded_sam_alignments, 
 	    stats.discarded_sam_alignments * 100 / stats.total_sam_alignments);
+    fprintf(stderr, "Min = %zu  Max = %zu  Mean = %0.1f\n",
+	    stats.min_discarded_score, stats.max_discarded_score,
+	    (double)stats.discarded_score_sum / stats.discarded_sam_alignments);
     total_alleles = stats.total_ref_alleles + stats.total_alt_alleles +
 		    stats.total_other_alleles;
     fprintf(stderr, "%zu total REF alleles (%zu%%).\n",
@@ -290,6 +293,11 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
 	    {
 		++stats->discarded_sam_alignments;
+		stats->discarded_score_sum += SAM_MAPQ(&sam_alignment);
+		if ( SAM_MAPQ(&sam_alignment) < stats->min_discarded_score )
+		    stats->min_discarded_score = SAM_MAPQ(&sam_alignment);
+		if ( SAM_MAPQ(&sam_alignment) > stats->max_discarded_score )
+		    stats->max_discarded_score = SAM_MAPQ(&sam_alignment);
 #ifdef DEBUG
 		fprintf(stderr, "Discarding low quality read: %s,%zu MAPQ=%u\n",
 			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
@@ -377,6 +385,11 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
 	    {
 		++stats->discarded_sam_alignments;
+		stats->discarded_score_sum += SAM_MAPQ(&sam_alignment);
+		if ( SAM_MAPQ(&sam_alignment) < stats->min_discarded_score )
+		    stats->min_discarded_score = SAM_MAPQ(&sam_alignment);
+		if ( SAM_MAPQ(&sam_alignment) > stats->max_discarded_score )
+		    stats->max_discarded_score = SAM_MAPQ(&sam_alignment);
 #ifdef DEBUG
 		fprintf(stderr, "Discarding low quality read: %s,%zu MAPQ=%u\n",
 			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),

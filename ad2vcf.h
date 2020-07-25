@@ -17,13 +17,15 @@ typedef struct
     sam_alignment_t *alignments[SAM_BUFF_MAX_ALIGNMENTS];
 }   sam_buff_t;
 
-#define     AD2VCF_STATS_INIT   { 0, 0, 0, 0, 0, 0, 0, SIZE_T_MAX, 0, 0 }
+#define     AD2VCF_STATS_INIT   { 0, 0, 0, 0, SIZE_T_MAX, 0, 0, 0, 0, SIZE_T_MAX, 0, 0 }
 typedef struct
 {
     size_t  total_vcf_calls,
 	    total_sam_alignments,
 	    discarded_sam_alignments,
-	    discarded_bases,
+	    discarded_score_sum,
+	    min_discarded_score,
+	    max_discarded_score,
 	    total_ref_alleles,
 	    total_alt_alleles,
 	    total_other_alleles,
