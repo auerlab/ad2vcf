@@ -197,8 +197,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     }
 
     fprintf(stderr, "\nFinal statistics:\n\n");
-    fprintf(stderr, "%zu VCF calls processed.\n", stats.total_vcf_calls);
-    fprintf(stderr, "%zu SAM alignments processed.\n",
+    fprintf(stderr, "%zu VCF calls processed\n", stats.total_vcf_calls);
+    fprintf(stderr, "%zu SAM alignments processed\n",
 	    stats.total_sam_alignments);
     fprintf(stderr, "Max buffered alignments: %zu\n", sam_buff.max_count);
     fprintf(stderr, "%zu SAM alignments discarded (%zu%%)\n",
@@ -210,18 +210,18 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		(double)stats.discarded_score_sum / stats.discarded_sam_alignments+1);
     total_alleles = stats.total_ref_alleles + stats.total_alt_alleles +
 		    stats.total_other_alleles;
-    fprintf(stderr, "%zu total REF alleles (%zu%%).\n",
+    fprintf(stderr, "%zu total REF alleles (%zu%%)\n",
 	    stats.total_ref_alleles,
 	    stats.total_ref_alleles * 100 / total_alleles);
-    fprintf(stderr, "%zu total ALT alleles (%zu%%).\n",
+    fprintf(stderr, "%zu total ALT alleles (%zu%%)\n",
 	    stats.total_alt_alleles,
 	    stats.total_alt_alleles * 100 / total_alleles);
-    fprintf(stderr, "%zu total OTHER alleles (%zu%%).\n",
+    fprintf(stderr, "%zu total OTHER alleles (%zu%%)\n",
 	    stats.total_other_alleles,
 	    stats.total_other_alleles * 100 / total_alleles);
-    fprintf(stderr, "Min depth = %zu.\n", stats.min_depth);
-    fprintf(stderr, "Max depth = %zu.\n", stats.max_depth);
-    fprintf(stderr, "Mean depth = %0.1f.\n",
+    fprintf(stderr, "Min depth = %zu\n", stats.min_depth);
+    fprintf(stderr, "Max depth = %zu\n", stats.max_depth);
+    fprintf(stderr, "Mean depth = %0.1f\n",
 	    (double)depth_sum / stats.total_vcf_calls);
 
     if ( xz )
@@ -526,7 +526,7 @@ void    update_allele_count(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment
 
     atype = allele == *VCF_REF(vcf_call) ? "ref" :
 	allele == *VCF_ALT(vcf_call) ? "alt" : "other";
-    fprintf(stderr, "Found \"%s\" allele %c at pos %zu in seq %s,%zu for call %s,%zu.\n",
+    fprintf(stderr, "Found \"%s\" allele %c at pos %zu in seq %s,%zu for call %s,%zu\n",
 	    atype, allele,
 	    VCF_POS(vcf_call) - SAM_POS(sam_alignment) + 1,
 	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
