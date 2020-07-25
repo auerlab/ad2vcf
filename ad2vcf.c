@@ -567,7 +567,6 @@ void    sam_buff_init(sam_buff_t *sam_buff)
     size_t  c;
     
     sam_buff->count = 0;
-    sam_buff->next = 0;
     sam_buff->max_count = 0;
     sam_buff->previous_pos = 0;
     *sam_buff->previous_rname = '\0';
@@ -698,6 +697,9 @@ void    sam_buff_shift(sam_buff_t *sam_buff, size_t c)
 {
     size_t  c2;
 
+    // FIXME: A circular queue would be more efficient, but won't matter
+    // much to the bottom line in ad2vcf
+    
     /* Make sure elements to be removed are freed */
     for (c2 = 0; c2 < c; ++c2)
 	sam_buff_free_alignment(sam_buff, c2);

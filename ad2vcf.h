@@ -11,7 +11,6 @@
 typedef struct
 {
     size_t  count;
-    size_t  next;
     size_t  max_count;
     size_t  previous_pos;
     char    previous_rname[SAM_RNAME_MAX_CHARS + 1];

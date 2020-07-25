@@ -1,0 +1,14 @@
+#!/bin/sh -e
+
+# https://clang.llvm.org/docs/UsersManual.html
+# make ==> bin.gcno
+# ./bin ==> bin.gcda
+# llvm-cov gcov bin.gcda
+# more *.c.gcov
+
+export CFLAGS='-Wall -O -g --coverage -fprofile-filter-files=".*\.c$\"'
+export LDFLAGS='-Wall -O -g --coverage -fprofile-filter-files="ad2vcf"'
+rm -f *.gcno *.gcda
+make clean all
+
+
