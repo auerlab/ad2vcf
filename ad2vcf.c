@@ -215,7 +215,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 
 /***************************************************************************
  *  Description:
- *      Skip alignments behind the given VCF call chromosome and pos
+ *      Skip alignments upstream of the given VCF call chromosome and pos
  *
  *  History: 
  *  Date        Name        Modification
@@ -236,15 +236,15 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 	sam_alignment_init(&sam_alignment, SAM_SEQ_MAX_CHARS);
     
     /*
-     *  Check and discard already buffered alignments behind the given
+     *  Check and discard already buffered alignments upstream of the given
      *  VCF call.  They will be useless to subsequent calls as well
      *  since the calls must be sorted in ascending order.
      */
     for (c = 0; (c < sam_buff->count) &&
-		alignment_behind_call(vcf_call, sam_buff->alignments[c]); ++c)
+		alignment_upstream_of_call(vcf_call, sam_buff->alignments[c]); ++c)
     {
 #ifdef DEBUG
-	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu behind variant %s,%zu\n",
+	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu upstream of variant %s,%zu\n",
 		c, SAM_RNAME(sam_buff->alignments[c]),
 		SAM_POS(sam_buff->alignments[c]),
 		VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
@@ -256,7 +256,7 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 	sam_buff_shift(sam_buff, c);
     
     /*
-     *  Read alignments from the stream until we find one that's not behind
+     *  Read alignments from the stream until we find one that's not upstream of
      *  this VCF call, i.e. not overlapping and at a lower position or
      *  chromosome.
      */
@@ -282,11 +282,11 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 		 *  We're done when we find an alignment overlapping or after
 		 *  the VCF call
 		 */
-		if ( ! alignment_behind_call(vcf_call, &sam_alignment) )
+		if ( ! alignment_upstream_of_call(vcf_call, &sam_alignment) )
 		    break;
 #ifdef DEBUG
 		else
-		    fprintf(stderr, "skip(): Skipping new alignment %s,%zu behind variant %s,%zu\n",
+		    fprintf(stderr, "skip(): Skipping new alignment %s,%zu upstream of variant %s,%zu\n",
 			    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 			    VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call));
 #endif
@@ -418,7 +418,7 @@ bool    call_in_alignment(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
 
 /***************************************************************************
  *  Description:
- *      Determine SAM alignment is completely behind a VCF call position,
+ *      Determine SAM alignment is completely upstream of a VCF call position,
  *      i.e. not overlapping and at a lower position or chromosome.
  *
  *  History: 
@@ -426,22 +426,18 @@ bool    call_in_alignment(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
  *  2020-05-26  Jason Bacon Begin
  ***************************************************************************/
 
-bool    alignment_behind_call(vcf_call_t *vcf_call, sam_alignment_t *alignment)
+bool    alignment_upstream_of_call(vcf_call_t *vcf_call, sam_alignment_t *alignment)
 
 {
-    /*fprintf(stderr, "alignment_behind_call(): %s,%zu,%zu %s,%zu\n",
+    /*fprintf(stderr, "alignment_upstream_of_call(): %s,%zu,%zu %s,%zu\n",
 	    SAM_RNAME(sam_alignment),SAM_POS(sam_alignment),
 	    SAM_SEQ_LEN(sam_alignment),
 	    VCF_CHROMOSOME(vcf_call),VCF_POS(vcf_call));*/
     if ( (SAM_POS(alignment) + SAM_SEQ_LEN(alignment) <= VCF_POS(vcf_call)) &&
 	  (strcmp(SAM_RNAME(alignment), VCF_CHROMOSOME(vcf_call)) == 0) )
-    {
 	return true;
-    }
     else if ( chromosome_name_cmp(SAM_RNAME(alignment), VCF_CHROMOSOME(vcf_call)) < 0 )
-    {
 	return true;
-    }
     else
 	return false;
 }
