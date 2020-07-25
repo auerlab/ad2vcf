@@ -196,32 +196,32 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	// vcf_phred_blank(&vcf_call);
     }
 
-    fprintf(stderr, "\nFinal statistics:\n\n");
-    fprintf(stderr, "%zu VCF calls processed\n", stats.total_vcf_calls);
-    fprintf(stderr, "%zu SAM alignments processed\n",
+    printf("\nFinal statistics:\n\n");
+    printf("%zu VCF calls processed\n", stats.total_vcf_calls);
+    printf("%zu SAM alignments processed\n",
 	    stats.total_sam_alignments);
-    fprintf(stderr, "Max buffered alignments: %zu\n", sam_buff.max_count);
-    fprintf(stderr, "%zu SAM alignments discarded (%zu%%)\n",
+    printf("Max buffered alignments: %zu\n", sam_buff.max_count);
+    printf("%zu SAM alignments discarded (%zu%%)\n",
 	    stats.discarded_sam_alignments, 
 	    stats.discarded_sam_alignments * 100 / stats.total_sam_alignments);
     if ( stats.discarded_sam_alignments != 0 )
-	fprintf(stderr, "MAPQ min = %zu  max = %zu  mean = %0.1f\n",
+	printf("MAPQ min = %zu  max = %zu  mean = %0.1f\n",
 		stats.min_discarded_score, stats.max_discarded_score,
 		(double)stats.discarded_score_sum / stats.discarded_sam_alignments+1);
     total_alleles = stats.total_ref_alleles + stats.total_alt_alleles +
 		    stats.total_other_alleles;
-    fprintf(stderr, "%zu total REF alleles (%zu%%)\n",
+    printf("%zu total REF alleles (%zu%%)\n",
 	    stats.total_ref_alleles,
 	    stats.total_ref_alleles * 100 / total_alleles);
-    fprintf(stderr, "%zu total ALT alleles (%zu%%)\n",
+    printf("%zu total ALT alleles (%zu%%)\n",
 	    stats.total_alt_alleles,
 	    stats.total_alt_alleles * 100 / total_alleles);
-    fprintf(stderr, "%zu total OTHER alleles (%zu%%)\n",
+    printf("%zu total OTHER alleles (%zu%%)\n",
 	    stats.total_other_alleles,
 	    stats.total_other_alleles * 100 / total_alleles);
-    fprintf(stderr, "Min depth = %zu\n", stats.min_depth);
-    fprintf(stderr, "Max depth = %zu\n", stats.max_depth);
-    fprintf(stderr, "Mean depth = %0.1f\n",
+    printf("Min depth = %zu\n", stats.min_depth);
+    printf("Max depth = %zu\n", stats.max_depth);
+    printf("Mean depth = %0.1f\n",
 	    (double)depth_sum / stats.total_vcf_calls);
 
     if ( xz )
