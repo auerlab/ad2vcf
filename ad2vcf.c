@@ -697,8 +697,11 @@ void    sam_buff_shift(sam_buff_t *sam_buff, size_t c)
 {
     size_t  c2;
 
-    // FIXME: A circular queue would be more efficient, but won't matter
-    // much to the bottom line in ad2vcf
+    /*
+     *  FIXME: A circular queue would be more efficient, but won't matter
+     *  much to the bottom line to avoid shifting a few pointers on top
+     *  of everything else going on here
+     */
     
     /* Make sure elements to be removed are freed */
     for (c2 = 0; c2 < c; ++c2)
