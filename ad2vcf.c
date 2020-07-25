@@ -426,20 +426,19 @@ bool    call_in_alignment(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
  *  2020-05-26  Jason Bacon Begin
  ***************************************************************************/
 
-bool    alignment_behind_call(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
+bool    alignment_behind_call(vcf_call_t *vcf_call, sam_alignment_t *alignment)
 
 {
     /*fprintf(stderr, "alignment_behind_call(): %s,%zu,%zu %s,%zu\n",
 	    SAM_RNAME(sam_alignment),SAM_POS(sam_alignment),
 	    SAM_SEQ_LEN(sam_alignment),
 	    VCF_CHROMOSOME(vcf_call),VCF_POS(vcf_call));*/
-    if ( (strcmp(SAM_RNAME(sam_alignment), VCF_CHROMOSOME(vcf_call)) == 0) &&
-	 (SAM_POS(sam_alignment) + SAM_SEQ_LEN(sam_alignment) <=
-	  VCF_POS(vcf_call)) )
+    if ( (SAM_POS(alignment) + SAM_SEQ_LEN(alignment) <= VCF_POS(vcf_call)) &&
+	  (strcmp(SAM_RNAME(alignment), VCF_CHROMOSOME(vcf_call)) == 0) )
     {
 	return true;
     }
-    else if ( chromosome_name_cmp(SAM_RNAME(sam_alignment), VCF_CHROMOSOME(vcf_call)) < 0 )
+    else if ( chromosome_name_cmp(SAM_RNAME(alignment), VCF_CHROMOSOME(vcf_call)) < 0 )
     {
 	return true;
     }
@@ -568,6 +567,7 @@ void    sam_buff_init(sam_buff_t *sam_buff)
     size_t  c;
     
     sam_buff->count = 0;
+    sam_buff->next = 0;
     sam_buff->max_count = 0;
     sam_buff->previous_pos = 0;
     *sam_buff->previous_rname = '\0';
@@ -607,7 +607,8 @@ void    sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignm
 	    fprintf(stderr, "sam_buff_add_alignment(): malloc() failed.\n");
 	    exit(EX_UNAVAILABLE);
 	}
-	sam_alignment_init(sam_buff->alignments[sam_buff->count], 0);
+	// Redundant to sam_alignment_copy()
+	// sam_alignment_init(sam_buff->alignments[sam_buff->count], 0);
     }
     else
 	sam_alignment_free(sam_buff->alignments[sam_buff->count]);
