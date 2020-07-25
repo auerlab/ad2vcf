@@ -204,9 +204,10 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     fprintf(stderr, "%zu SAM alignments discarded (%zu%%)\n",
 	    stats.discarded_sam_alignments, 
 	    stats.discarded_sam_alignments * 100 / stats.total_sam_alignments);
-    fprintf(stderr, "Min = %zu  Max = %zu  Mean = %0.1f\n",
-	    stats.min_discarded_score, stats.max_discarded_score,
-	    (double)stats.discarded_score_sum / stats.discarded_sam_alignments);
+    if ( stats.discarded_sam_alignments != 0 )
+	fprintf(stderr, "MAPQ min = %zu  max = %zu  mean = %0.1f\n",
+		stats.min_discarded_score, stats.max_discarded_score,
+		(double)stats.discarded_score_sum / stats.discarded_sam_alignments+1);
     total_alleles = stats.total_ref_alleles + stats.total_alt_alleles +
 		    stats.total_other_alleles;
     fprintf(stderr, "%zu total REF alleles (%zu%%).\n",
