@@ -64,7 +64,9 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     bool            xz = false,
 		    more_alignments;
     size_t          previous_vcf_pos,
-		    total_alleles;
+		    total_alleles,
+		    depth,
+		    depth_sum = 0;
     ad2vcf_stats_t  stats = AD2VCF_STATS_INIT;
     char            cmd[CMD_MAX + 1],
 		    vcf_out_filename[PATH_MAX + 1],
@@ -88,6 +90,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	exit(EX_NOINPUT);
     }
 
+    fprintf(stderr, "\nProcessing \"%s\":\n\n", vcf_filename);
+    
     // Insert "-ad" before ".vcf"
     if ( (ext = strstr(vcf_filename, ".vcf")) == NULL )
     {
@@ -159,6 +163,13 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	if ( more_alignments )
 	    allelic_depth(&vcf_call, sam_stream, &sam_buff, vcf_out_stream, &stats);
 	
+	depth = VCF_REF_COUNT(&vcf_call) + VCF_ALT_COUNT(&vcf_call);
+	depth_sum += depth;
+	if ( depth < stats.min_depth )
+	    stats.min_depth = depth;
+	if ( depth > stats.max_depth )
+	    stats.max_depth = depth;
+	
 	/* Output record with allelic depth */
 #ifdef DEBUG
 	fputc('\n', vcf_out_stream);
@@ -184,15 +195,15 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 
 	// vcf_phred_blank(&vcf_call);
     }
-    
-    fprintf(stderr, "Max buffered alignments: %zu\n", sam_buff.max_count);
+
+    fprintf(stderr, "\nFinal statistics:\n\n");
     fprintf(stderr, "%zu VCF calls processed.\n", stats.total_vcf_calls);
     fprintf(stderr, "%zu SAM alignments processed.\n",
 	    stats.total_sam_alignments);
+    fprintf(stderr, "Max buffered alignments: %zu\n", sam_buff.max_count);
     fprintf(stderr, "%zu SAM alignments discarded (%zu%%).\n",
 	    stats.discarded_sam_alignments, 
 	    stats.discarded_sam_alignments * 100 / stats.total_sam_alignments);
-    // fprintf(stderr, "%zu bases discarded.\n", stats.discarded_bases);
     total_alleles = stats.total_ref_alleles + stats.total_alt_alleles +
 		    stats.total_other_alleles;
     fprintf(stderr, "%zu total REF alleles (%zu%%).\n",
@@ -204,6 +215,11 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     fprintf(stderr, "%zu total OTHER alleles (%zu%%).\n",
 	    stats.total_other_alleles,
 	    stats.total_other_alleles * 100 / total_alleles);
+    fprintf(stderr, "Min depth = %zu.\n", stats.min_depth);
+    fprintf(stderr, "Max depth = %zu.\n", stats.max_depth);
+    fprintf(stderr, "Mean depth = %0.1f.\n",
+	    (double)depth_sum / stats.total_vcf_calls);
+
     if ( xz )
 	pclose(vcf_in_stream);
     else
@@ -265,15 +281,19 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
 	    ++stats->total_sam_alignments;
-	    /*fprintf(stderr, "sam_alignment_read(): %s,%zu,%zu,%zu\n",
+	    /*
+	    fprintf(stderr, "sam_alignment_read(): %s,%zu,%zu,%zu,%u\n",
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-		    SAM_SEQ_LEN(&sam_alignment), SAM_QUAL_LEN(&sam_alignment));*/
-	    
+		    SAM_SEQ_LEN(&sam_alignment), SAM_QUAL_LEN(&sam_alignment),
+		    SAM_MAPQ(&sam_alignment));
+	    */
 	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
 	    {
+		++stats->discarded_sam_alignments;
 #ifdef DEBUG
-		fprintf(stderr, "Discarding low quality read: %s,%zu\n",
-			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment));
+		fprintf(stderr, "Discarding low quality read: %s,%zu MAPQ=%u\n",
+			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+			SAM_MAPQ(&sam_alignment));
 #endif
 	    }
 	    else
@@ -349,15 +369,18 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
 	    ++stats->total_sam_alignments;
-	    /*fprintf(stderr, "sam_alignment_read(): Read %s,%zu,%zu\n",
+	    /*
+	    fprintf(stderr, "sam_alignment_read(): Read %s,%zu,%zu,%u\n",
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-		    SAM_SEQ_LEN(&sam_alignment));*/
+		    SAM_SEQ_LEN(&sam_alignment), SAM_MAPQ(&sam_alignment));
+	    */
 	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
 	    {
 		++stats->discarded_sam_alignments;
 #ifdef DEBUG
-		fprintf(stderr, "Discarding low quality read: %s,%zu\n",
-			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment));
+		fprintf(stderr, "Discarding low quality read: %s,%zu MAPQ=%u\n",
+			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
+			SAM_MAPQ(&sam_alignment));
 #endif
 	    }
 	    else

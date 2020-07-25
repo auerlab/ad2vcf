@@ -17,7 +17,7 @@ typedef struct
     sam_alignment_t *alignments[SAM_BUFF_MAX_ALIGNMENTS];
 }   sam_buff_t;
 
-#define     AD2VCF_STATS_INIT   { 0, 0, 0, 0, 0, 0, 0 }
+#define     AD2VCF_STATS_INIT   { 0, 0, 0, 0, 0, 0, 0, SIZE_T_MAX, 0, 0 }
 typedef struct
 {
     size_t  total_vcf_calls,
@@ -26,7 +26,12 @@ typedef struct
 	    discarded_bases,
 	    total_ref_alleles,
 	    total_alt_alleles,
-	    total_other_alleles;
+	    total_other_alleles,
+	    min_depth,
+	    max_depth,
+	    // Median would require an array of all VCF calls and we can
+	    // always get it later from the -ad output
+	    mean_depth;
 }   ad2vcf_stats_t;
 
 #include "ad2vcf-protos.h"
