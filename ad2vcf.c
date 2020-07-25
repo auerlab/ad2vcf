@@ -205,9 +205,9 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    stats.discarded_sam_alignments, 
 	    stats.discarded_sam_alignments * 100 / stats.total_sam_alignments);
     if ( stats.discarded_sam_alignments != 0 )
-	printf("MAPQ min = %zu  max = %zu  mean = %0.1f\n",
+	printf("MAPQ min = %zu  max = %zu  mean = %f\n",
 		stats.min_discarded_score, stats.max_discarded_score,
-		(double)stats.discarded_score_sum / stats.discarded_sam_alignments+1);
+		(double)stats.discarded_score_sum / stats.discarded_sam_alignments);
     total_alleles = stats.total_ref_alleles + stats.total_alt_alleles +
 		    stats.total_other_alleles;
     printf("%zu total REF alleles (%zu%%)\n",
@@ -221,7 +221,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    stats.total_other_alleles * 100 / total_alleles);
     printf("Min depth = %zu\n", stats.min_depth);
     printf("Max depth = %zu\n", stats.max_depth);
-    printf("Mean depth = %0.1f\n",
+    printf("Mean depth = %f\n",
 	    (double)depth_sum / stats.total_vcf_calls);
 
     if ( xz )
