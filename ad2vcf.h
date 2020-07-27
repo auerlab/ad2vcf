@@ -1,4 +1,8 @@
 
+#ifndef _SYS_STDINT_H_
+#include <stdint.h>
+#endif
+
 #define     CMD_MAX                 128
 #define     SAM_BUFF_MAX_ALIGNMENTS 262144
 
