@@ -17,7 +17,7 @@ typedef struct
     sam_alignment_t *alignments[SAM_BUFF_MAX_ALIGNMENTS];
 }   sam_buff_t;
 
-#define     AD2VCF_STATS_INIT   { 0, 0, 0, 0, SIZE_T_MAX, 0, 0, 0, 0, SIZE_T_MAX, 0, 0 }
+#define     AD2VCF_STATS_INIT   { 0, 0, 0, 0, SIZE_MAX, 0, 0, 0, 0, SIZE_MAX, 0, 0 }
 typedef struct
 {
     size_t  total_vcf_calls,
