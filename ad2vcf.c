@@ -90,7 +90,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	exit(EX_NOINPUT);
     }
 
-    fprintf(stderr, "\nProcessing \"%s\":\n\n", vcf_filename);
+    printf("\nProcessing \"%s\":\n\n", vcf_filename);
     
     // Insert "-ad" before ".vcf"
     if ( (ext = strstr(vcf_filename, ".vcf")) == NULL )
@@ -147,7 +147,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	}
 	else
 	{
-	    fprintf(stderr, "Starting VCF chromosome %s.\n",
+	    printf("Starting VCF chromosome %s.\n",
 		    VCF_CHROMOSOME(&vcf_call));
 	    strlcpy(previous_vcf_chromosome, VCF_CHROMOSOME(&vcf_call),
 		    VCF_CHROMOSOME_MAX_CHARS);
