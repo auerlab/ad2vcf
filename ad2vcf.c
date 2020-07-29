@@ -149,6 +149,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	{
 	    printf("Starting VCF chromosome %s.\n",
 		    VCF_CHROMOSOME(&vcf_call));
+	    fflush(stdout);
 	    strlcpy(previous_vcf_chromosome, VCF_CHROMOSOME(&vcf_call),
 		    VCF_CHROMOSOME_MAX_CHARS);
 	    previous_vcf_pos = VCF_POS(&vcf_call);
