@@ -4,6 +4,7 @@
 #endif
 
 #define     CMD_MAX                 128
+// 256k was not enough for a few of the SRA CRAMs
 #define     SAM_BUFF_MAX_ALIGNMENTS 524288
 
 // FIXME: These should be command line arguments
