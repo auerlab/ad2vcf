@@ -625,7 +625,7 @@ void    sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignm
     
     if (sam_buff->count == SAM_BUFF_MAX_ALIGNMENTS )
     {
-	fprintf(stderr, "sam_buff_add_alignment(): Hit SAM_BUFF_MAX_ALIGNMENTS\n");
+	fprintf(stderr, "sam_buff_add_alignment(): Hit SAM_BUFF_MAX_ALIGNMENTS=%u\n", SAM_BUFF_MAX_ALIGNMENTS);
 	fprintf(stderr, "Increase value in header and recompile.\n");
 	exit(EX_SOFTWARE);
     }
