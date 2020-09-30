@@ -57,10 +57,10 @@ void    usage(const char *argv[])
 int     ad2vcf(const char *argv[], FILE *sam_stream)
 
 {
+    static sam_buff_t      sam_buff;    // Watch out for small stack sizes
     FILE            *vcf_in_stream,
 		    *vcf_out_stream;
     vcf_call_t      vcf_call;
-    sam_buff_t      sam_buff;
     bool            xz = false,
 		    more_alignments;
     size_t          previous_vcf_pos,
