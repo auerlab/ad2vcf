@@ -5,7 +5,7 @@
 
 #define     CMD_MAX                 128
 // 512k was not enough for a few of the SRA CRAMs
-#define     SAM_BUFF_MAX_ALIGNMENTS 1048576
+#define     SAM_BUFF_DEFAULT_MAX    65536
 
 // FIXME: These should be command line arguments
 #define     MAPQ_MIN                10
@@ -18,8 +18,9 @@ typedef struct
     size_t  count;
     size_t  max_count;
     size_t  previous_pos;
+    size_t  max_alignments;
     char    previous_rname[SAM_RNAME_MAX_CHARS + 1];
-    sam_alignment_t *alignments[SAM_BUFF_MAX_ALIGNMENTS];
+    sam_alignment_t **alignments;
 }   sam_buff_t;
 
 #define     AD2VCF_STATS_INIT   { 0, 0, 0, 0, SIZE_MAX, 0, 0, 0, 0, SIZE_MAX, 0, 0 }

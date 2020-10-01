@@ -599,12 +599,28 @@ void    sam_buff_init(sam_buff_t *sam_buff)
 
 {
     size_t  c;
+    char    *str, *end;
     
     sam_buff->count = 0;
     sam_buff->max_count = 0;
     sam_buff->previous_pos = 0;
     *sam_buff->previous_rname = '\0';
-    for (c = 0; c < SAM_BUFF_MAX_ALIGNMENTS; ++c)
+    if ( (str = getenv("SAM_BUFF_MAX_ALIGNMENTS")) != NULL )
+    {
+	sam_buff->max_alignments = strtoul(str, &end, 10);
+	if ( (*end != '\0') || (*str == '-') )
+	{
+	    fprintf(stderr, "sam_buff_init(): Env variable SAM_BUFF_MAX_ALIGNMENTS must be an unsigned integer.\n");
+	    fprintf(stderr, "Got %s.\n", str);
+	    exit(EX_DATAERR);
+	}
+    }
+    else
+	sam_buff->max_alignments = SAM_BUFF_DEFAULT_MAX;
+    sam_buff->alignments =
+	(sam_alignment_t **)malloc(sam_buff->max_alignments *
+				   sizeof(sam_alignment_t **));
+    for (c = 0; c < sam_buff->max_alignments; ++c)
 	sam_buff->alignments[c] = NULL;
 }
 
@@ -623,11 +639,16 @@ void    sam_buff_add_alignment(sam_buff_t *sam_buff, sam_alignment_t *sam_alignm
 {
     sam_buff_check_order(sam_buff, sam_alignment);
     
-    if (sam_buff->count == SAM_BUFF_MAX_ALIGNMENTS )
+    if (sam_buff->count == sam_buff->max_alignments )
     {
-	fprintf(stderr, "sam_buff_add_alignment(): Hit SAM_BUFF_MAX_ALIGNMENTS=%u\n", SAM_BUFF_MAX_ALIGNMENTS);
-	fprintf(stderr, "Increase value in header and recompile.\n");
-	exit(EX_SOFTWARE);
+	fprintf(stderr,
+		"sam_buff_add_alignment(): Hit max_alignments=%zu, doubling buffer size.\n",
+		sam_buff->max_alignments);
+	// exit(EX_SOFTWARE);
+	sam_buff->max_alignments *= 2;
+	sam_buff->alignments =
+	    (sam_alignment_t **)realloc(sam_buff->alignments,
+					sizeof(sam_alignment_t **));
     }
     
     // Just allocate the static fields, sam_alignment_copy() does the rest
