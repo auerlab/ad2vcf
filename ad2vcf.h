@@ -4,8 +4,27 @@
 #endif
 
 #define     CMD_MAX                 128
-// 512k was not enough for a few of the SRA CRAMs
-#define     SAM_BUFF_DEFAULT_MAX    65536
+/*
+    256k was not enough for a few of the SRA CRAMs.
+    NWD976804 needed more than 512k.  Bad data?
+    Of 55k samples, only about 11% reached a sam buffer of > 8k.
+    Set an upper limit to prevent runaway memory use and error out
+    with EX_DATAERR to tell script not to retry.
+
+    From sam-buff-stats script:
+    
+    Total      54982
+    >4096      13723
+    >8192       5824
+    >16384      2795
+    >32768      1612
+    >65536       138
+    >131072       33
+    >262144       12
+    >524288        0
+*/
+#define     SAM_BUFF_START_SIZE     4096
+#define     SAM_BUFF_MAX_SIZE       524288
 
 // FIXME: These should be command line arguments
 #define     MAPQ_MIN                10
@@ -15,12 +34,12 @@
 // FIXME: Move this to samio when complete?
 typedef struct
 {
-    size_t  count;
-    size_t  max_count;
-    size_t  previous_pos;
-    size_t  max_alignments;
-    char    previous_rname[SAM_RNAME_MAX_CHARS + 1];
+    size_t          buff_size;;
     sam_alignment_t **alignments;
+    size_t          count;
+    size_t          max_count;
+    size_t          previous_pos;
+    char            previous_rname[SAM_RNAME_MAX_CHARS + 1];
 }   sam_buff_t;
 
 #define     AD2VCF_STATS_INIT   { 0, 0, 0, 0, SIZE_MAX, 0, 0, 0, 0, SIZE_MAX, 0, 0 }
