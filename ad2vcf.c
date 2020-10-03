@@ -605,6 +605,14 @@ void    sam_buff_init(sam_buff_t *sam_buff)
     sam_buff->previous_pos = 0;
     *sam_buff->previous_rname = '\0';
     sam_buff->buff_size = SAM_BUFF_START_SIZE;
+    /*
+     *  Dynamically allocating the pointers is probably senseless since they
+     *  take very little space compared to the alignment data.  By the time
+     *  the pointer array takes a significant amount of RAM, you're probably
+     *  already thrashing to accomodate the sequence data.  The pointer array
+     *  size is capped by SAM_BUFF_MAX_SIZE to prevent memory exhaustion.
+     *  We may save a few megabytes with this, though.
+     */
     sam_buff->alignments =
 	(sam_alignment_t **)malloc(sam_buff->buff_size *
 				   sizeof(sam_alignment_t **));
