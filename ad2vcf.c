@@ -293,19 +293,7 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 		    SAM_MAPQ(&sam_alignment));
 	    */
 	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
-	    {
-		++stats->discarded_sam_alignments;
-		stats->discarded_score_sum += SAM_MAPQ(&sam_alignment);
-		if ( SAM_MAPQ(&sam_alignment) < stats->min_discarded_score )
-		    stats->min_discarded_score = SAM_MAPQ(&sam_alignment);
-		if ( SAM_MAPQ(&sam_alignment) > stats->max_discarded_score )
-		    stats->max_discarded_score = SAM_MAPQ(&sam_alignment);
-#ifdef DEBUG
-		fprintf(stderr, "Discarding low quality read: %s,%zu MAPQ=%u\n",
-			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-			SAM_MAPQ(&sam_alignment));
-#endif
-	    }
+		stats_update_discarded(stats, &sam_alignment);
 	    else
 	    {
 		/*
@@ -385,19 +373,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 		    SAM_SEQ_LEN(&sam_alignment), SAM_MAPQ(&sam_alignment));
 	    */
 	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
-	    {
-		++stats->discarded_sam_alignments;
-		stats->discarded_score_sum += SAM_MAPQ(&sam_alignment);
-		if ( SAM_MAPQ(&sam_alignment) < stats->min_discarded_score )
-		    stats->min_discarded_score = SAM_MAPQ(&sam_alignment);
-		if ( SAM_MAPQ(&sam_alignment) > stats->max_discarded_score )
-		    stats->max_discarded_score = SAM_MAPQ(&sam_alignment);
-#ifdef DEBUG
-		fprintf(stderr, "Discarding low quality read: %s,%zu MAPQ=%u\n",
-			SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
-			SAM_MAPQ(&sam_alignment));
-#endif
-	    }
+		stats_update_discarded(stats, &sam_alignment);
 	    else
 	    {
 #ifdef DEBUG
@@ -798,4 +774,21 @@ int     uchar_cmp(unsigned char *c1, unsigned char *c2)
 
 {
     return *c1 - *c2;
+}
+
+
+void    stats_update_discarded(ad2vcf_stats_t *stats,
+			       sam_alignment_t *sam_alignment)
+
+{
+    ++stats->discarded_sam_alignments;
+    stats->discarded_score_sum += SAM_MAPQ(sam_alignment);
+    if ( SAM_MAPQ(sam_alignment) < stats->min_discarded_score )
+	stats->min_discarded_score = SAM_MAPQ(sam_alignment);
+    if ( SAM_MAPQ(sam_alignment) > stats->max_discarded_score )
+	stats->max_discarded_score = SAM_MAPQ(sam_alignment);
+
+    fprintf(stderr, "Discarding low quality read: %s,%zu MAPQ=%u\n",
+	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
+	    SAM_MAPQ(sam_alignment));
 }
