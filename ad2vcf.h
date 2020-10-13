@@ -27,7 +27,6 @@
 #define     SAM_BUFF_MAX_SIZE       524288
 
 // FIXME: These should be command line arguments
-#define     MAPQ_MIN                10
 #define     PHRED_MIN               20
 #define     PHRED_BASE              33
 
@@ -39,10 +38,13 @@ typedef struct
     size_t          count;
     size_t          max_count;
     size_t          previous_pos;
+    unsigned int    mapq_min;
     char            previous_rname[SAM_RNAME_MAX_CHARS + 1];
 }   sam_buff_t;
 
-#define     AD2VCF_STATS_INIT   { 0, 0, 0, 0, SIZE_MAX, 0, 0, 0, 0, SIZE_MAX, 0, 0 }
+#define SAM_BUFF_MAPQ_MIN(sam_buff) ((sam_buff)->mapq_min)
+
+#define AD2VCF_STATS_INIT   { 0, 0, 0, 0, SIZE_MAX, 0, 0, 0, 0, SIZE_MAX, 0, 0 }
 typedef struct
 {
     size_t  total_vcf_calls,

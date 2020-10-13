@@ -29,7 +29,7 @@
 int     main(int argc, const char *argv[])
 
 {
-    if ( argc != 2 )
+    if ( argc != 3 )
 	usage(argv);
     
     return ad2vcf(argv, stdin);
@@ -39,7 +39,7 @@ int     main(int argc, const char *argv[])
 void    usage(const char *argv[])
 
 {
-    fprintf(stderr, "Usage: %s single-sample.vcf[.xz] < file.sam\n", argv[0]);
+    fprintf(stderr, "Usage: %s single-sample.vcf[.xz] minimum-MAPQ < file.sam\n", argv[0]);
     exit(EX_USAGE);
 }
 
@@ -57,7 +57,7 @@ void    usage(const char *argv[])
 int     ad2vcf(const char *argv[], FILE *sam_stream)
 
 {
-    static sam_buff_t      sam_buff;    // Watch out for small stack sizes
+    sam_buff_t      sam_buff;
     FILE            *vcf_in_stream,
 		    *vcf_out_stream;
     vcf_call_t      vcf_call;
@@ -71,8 +71,10 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     char            cmd[CMD_MAX + 1],
 		    vcf_out_filename[PATH_MAX + 1],
 		    previous_vcf_chromosome[VCF_CHROMOSOME_MAX_CHARS + 1] = "",
-		    *ext;
+		    *ext,
+		    *end;
     const char      *vcf_filename = argv[1];
+    unsigned int    mapq_min;
 
     xz = ((ext = strstr(vcf_filename,".xz")) != NULL) && (ext[3] == '\0');
     if ( xz )
@@ -89,6 +91,14 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		strerror(errno));
 	exit(EX_NOINPUT);
     }
+    
+    mapq_min = strtol(argv[2], &end, 10);
+    if ( *end != '\0' )
+    {
+	fprintf(stderr, "%s: Invalid MAPQ minimum: %s\n", argv[0], argv[2]);
+	exit(EX_USAGE);
+    }
+    sam_buff_init(&sam_buff, mapq_min);
 
     printf("\nProcessing \"%s\":\n\n", vcf_filename);
     
@@ -117,7 +127,6 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     }
 
     vcf_call_init(&vcf_call);
-    sam_buff_init(&sam_buff);
     
     while ( vcf_read_ss_call(vcf_in_stream, &vcf_call, VCF_SAMPLE_MAX_CHARS) == VCF_OK )
     {
@@ -292,7 +301,7 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 		    SAM_SEQ_LEN(&sam_alignment), SAM_QUAL_LEN(&sam_alignment),
 		    SAM_MAPQ(&sam_alignment));
 	    */
-	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
+	    if ( SAM_MAPQ(&sam_alignment) < SAM_BUFF_MAPQ_MIN(sam_buff) )
 		stats_update_discarded(stats, &sam_alignment);
 	    else
 	    {
@@ -372,7 +381,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 		    SAM_SEQ_LEN(&sam_alignment), SAM_MAPQ(&sam_alignment));
 	    */
-	    if ( SAM_MAPQ(&sam_alignment) < MAPQ_MIN )
+	    if ( SAM_MAPQ(&sam_alignment) < SAM_BUFF_MAPQ_MIN(sam_buff) )
 		stats_update_discarded(stats, &sam_alignment);
 	    else
 	    {
@@ -571,7 +580,7 @@ void    sam_buff_check_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignmen
  *  2020-05-27  Jason Bacon Begin
  ***************************************************************************/
 
-void    sam_buff_init(sam_buff_t *sam_buff)
+void    sam_buff_init(sam_buff_t *sam_buff, unsigned int mapq_min)
 
 {
     size_t  c;
