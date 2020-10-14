@@ -100,7 +100,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     }
     sam_buff_init(&sam_buff, mapq_min);
 
-    printf("\nProcessing \"%s\":\n\n", vcf_filename);
+    printf("\nProcessing \"%s\", MAPQ min = %u:\n\n", vcf_filename, mapq_min);
     
     // Insert "-ad" before ".vcf"
     if ( (ext = strstr(vcf_filename, ".vcf")) == NULL )
@@ -590,6 +590,7 @@ void    sam_buff_init(sam_buff_t *sam_buff, unsigned int mapq_min)
     sam_buff->previous_pos = 0;
     *sam_buff->previous_rname = '\0';
     sam_buff->buff_size = SAM_BUFF_START_SIZE;
+    sam_buff->mapq_min = mapq_min;
     /*
      *  Dynamically allocating the pointers is probably senseless since they
      *  take very little space compared to the alignment data.  By the time
@@ -797,7 +798,9 @@ void    stats_update_discarded(ad2vcf_stats_t *stats,
     if ( SAM_MAPQ(sam_alignment) > stats->max_discarded_score )
 	stats->max_discarded_score = SAM_MAPQ(sam_alignment);
 
+#ifdef DEBUG
     fprintf(stderr, "Discarding low quality read: %s,%zu MAPQ=%u\n",
 	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
 	    SAM_MAPQ(sam_alignment));
+#endif
 }
