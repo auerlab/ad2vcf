@@ -21,6 +21,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <errno.h>
+#include <sys/param.h>  // MIN()
 #include <vcfio.h>
 #include <samio.h>
 #include <biostring.h>
@@ -67,7 +68,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    total_alleles,
 		    depth,
 		    depth_sum = 0;
-    ad2vcf_stats_t  stats = AD2VCF_STATS_INIT;
+    ad2vcf_stats_t  stats;
     char            cmd[CMD_MAX + 1],
 		    vcf_out_filename[PATH_MAX + 1],
 		    previous_vcf_chromosome[VCF_CHROMOSOME_MAX_CHARS + 1] = "",
@@ -98,8 +99,10 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	fprintf(stderr, "%s: Invalid MAPQ minimum: %s\n", argv[0], argv[2]);
 	exit(EX_USAGE);
     }
+    
     sam_buff_init(&sam_buff, mapq_min);
-
+    ad2vcf_stats_init(&stats);
+    
     printf("\nProcessing \"%s\", MAPQ min = %u:\n\n", vcf_filename, mapq_min);
     
     // Insert "-ad" before ".vcf"
@@ -206,18 +209,46 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	// vcf_phred_blank(&vcf_call);
     }
 
+#ifdef DEBUG
+    static sam_alignment_t sam_alignment = SAM_ALIGNMENT_INIT;
+    if ( sam_alignment.seq == NULL )
+	sam_alignment_init(&sam_alignment, SAM_SEQ_MAX_CHARS);
+
+    // Debug discarded count
+    puts("Gathering stats on trailing alignments...");
+    while ( sam_alignment_read(sam_stream, &sam_alignment) )
+    {
+	++stats.total_alignments;
+	++stats.trailing_alignments;
+	if ( SAM_MAPQ(&sam_alignment) < SAM_BUFF_MAPQ_MIN(&sam_buff) )
+	{
+	    stats_update_discarded(&stats, &sam_alignment);
+	    ++stats.discarded_trailing;
+	}
+    }
+#endif
+
     printf("\nFinal statistics:\n\n");
     printf("%zu VCF calls processed\n", stats.total_vcf_calls);
-    printf("%zu SAM alignments processed\n",
-	    stats.total_sam_alignments);
+    printf("%zu SAM alignments processed\n", stats.total_alignments);
     printf("Max buffered alignments: %zu\n", sam_buff.max_count);
-    printf("%zu SAM alignments discarded (%zu%%)\n",
-	    stats.discarded_sam_alignments, 
-	    stats.discarded_sam_alignments * 100 / stats.total_sam_alignments);
-    if ( stats.discarded_sam_alignments != 0 )
-	printf("MAPQ min = %zu  max = %zu  mean = %f\n",
+    printf("%zu total SAM alignments discarded (%zu%%)\n",
+	    stats.discarded_alignments, 
+	    stats.discarded_alignments * 100 / stats.total_alignments);
+#ifdef DEBUG
+    printf("%zu SAM alignments beyond last call.\n", stats.trailing_alignments);
+    printf("%zu trailing SAM alignments discarded (%zu%%)\n",
+	    stats.discarded_trailing, 
+	    stats.discarded_trailing * 100 / stats.trailing_alignments);
+#endif
+    if ( stats.discarded_alignments != 0 )
+	printf("MAPQ min discarded = %zu  max discarded = %zu  mean = %f\n",
 		stats.min_discarded_score, stats.max_discarded_score,
-		(double)stats.discarded_score_sum / stats.discarded_sam_alignments);
+		(double)stats.discarded_score_sum / stats.discarded_alignments);
+    printf("MAPQ min used = %zu  max used = %zu  mean = %f\n",
+	    SAM_BUFF_MAPQ_LOW(&sam_buff), SAM_BUFF_MAPQ_HIGH(&sam_buff),
+	    (double)SAM_BUFF_MAPQ_SUM(&sam_buff) / SAM_BUFF_READS_USED(&sam_buff));
+    
     total_alleles = stats.total_ref_alleles + stats.total_alt_alleles +
 		    stats.total_other_alleles;
     printf("%zu total REF alleles (%zu%%)\n",
@@ -270,7 +301,7 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
      *  VCF call.  They will be useless to subsequent calls as well
      *  since the calls must be sorted in ascending order.
      */
-    for (c = 0; (c < sam_buff->count) &&
+    for (c = 0; (c < sam_buff->buffered_count) &&
 		alignment_upstream_of_call(vcf_call, sam_buff->alignments[c]); ++c)
     {
 #ifdef DEBUG
@@ -290,11 +321,11 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
      *  this VCF call, i.e. not overlapping and at a lower position or
      *  chromosome.
      */
-    if ( sam_buff->count == 0 )
+    if ( sam_buff->buffered_count == 0 )
     {
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
-	    ++stats->total_sam_alignments;
+	    ++stats->total_alignments;
 	    /*
 	    fprintf(stderr, "sam_alignment_read(): %s,%zu,%zu,%zu,%u\n",
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
@@ -321,7 +352,7 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 	}
 #ifdef DEBUG
 	fprintf(stderr, "skip(): Buffering alignment #%zu %s,%zu,%zu\n",
-		    sam_buff->count,
+		    sam_buff->buffered_count,
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 		    SAM_SEQ_LEN(&sam_alignment));
 #endif
@@ -357,7 +388,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 	sam_alignment_init(&sam_alignment, SAM_SEQ_MAX_CHARS);
 
     /* Check and discard already buffered alignments */
-    for (c = 0; (c < sam_buff->count) &&
+    for (c = 0; (c < sam_buff->buffered_count) &&
 		(overlapping = call_in_alignment(vcf_call, sam_buff->alignments[c]));
 		++c)
     {
@@ -375,7 +406,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 	/* Read and buffer more alignments from the stream */
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
-	    ++stats->total_sam_alignments;
+	    ++stats->total_alignments;
 	    /*
 	    fprintf(stderr, "sam_alignment_read(): Read %s,%zu,%zu,%u\n",
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
@@ -387,7 +418,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 	    {
 #ifdef DEBUG
 		fprintf(stderr, "depth(): Buffering new alignment #%zu %s,%zu,%zu\n",
-			sam_buff->count, SAM_RNAME(&sam_alignment),
+			sam_buff->buffered_count, SAM_RNAME(&sam_alignment),
 			SAM_POS(&sam_alignment), SAM_SEQ_LEN(&sam_alignment));
 #endif
 		sam_buff_add_alignment(sam_buff, &sam_alignment);
@@ -585,12 +616,18 @@ void    sam_buff_init(sam_buff_t *sam_buff, unsigned int mapq_min)
 {
     size_t  c;
     
-    sam_buff->count = 0;
+    sam_buff->buff_size = SAM_BUFF_START_SIZE;
+    sam_buff->buffered_count = 0;
     sam_buff->max_count = 0;
     sam_buff->previous_pos = 0;
     *sam_buff->previous_rname = '\0';
-    sam_buff->buff_size = SAM_BUFF_START_SIZE;
+    
     sam_buff->mapq_min = mapq_min;
+    sam_buff->mapq_low = UINT64_MAX;
+    sam_buff->mapq_high = 0;
+    sam_buff->mapq_sum = 0;
+    sam_buff->reads_used = 0;
+    
     /*
      *  Dynamically allocating the pointers is probably senseless since they
      *  take very little space compared to the alignment data.  By the time
@@ -625,33 +662,38 @@ void    sam_buff_add_alignment(sam_buff_t *sam_buff,
 
     sam_buff_check_order(sam_buff, sam_alignment);
     
+    sam_buff->mapq_low = MIN(sam_buff->mapq_low, SAM_MAPQ(sam_alignment));
+    sam_buff->mapq_high = MAX(sam_buff->mapq_high, SAM_MAPQ(sam_alignment));
+    sam_buff->mapq_sum += SAM_MAPQ(sam_alignment);
+    ++sam_buff->reads_used;
+
     // Just allocate the static fields, sam_alignment_copy() does the rest
-    if ( sam_buff->alignments[sam_buff->count] == NULL )
+    if ( sam_buff->alignments[sam_buff->buffered_count] == NULL )
     {
-	//fprintf(stderr, "Allocating alignment #%zu\n", sam_buff->count);
-	sam_buff->alignments[sam_buff->count] = malloc(sizeof(sam_alignment_t));
-	if ( sam_buff->alignments[sam_buff->count] == NULL )
+	//fprintf(stderr, "Allocating alignment #%zu\n", sam_buff->buffered_count);
+	sam_buff->alignments[sam_buff->buffered_count] = malloc(sizeof(sam_alignment_t));
+	if ( sam_buff->alignments[sam_buff->buffered_count] == NULL )
 	{
 	    fprintf(stderr, "sam_buff_add_alignment(): malloc() failed.\n");
 	    exit(EX_UNAVAILABLE);
 	}
 	// Redundant to sam_alignment_copy()
-	// sam_alignment_init(sam_buff->alignments[sam_buff->count], 0);
+	// sam_alignment_init(sam_buff->alignments[sam_buff->buffered_count], 0);
     }
     else
-	sam_alignment_free(sam_buff->alignments[sam_buff->count]);
+	sam_alignment_free(sam_buff->alignments[sam_buff->buffered_count]);
     
-    sam_alignment_copy(sam_buff->alignments[sam_buff->count], sam_alignment);
+    sam_alignment_copy(sam_buff->alignments[sam_buff->buffered_count], sam_alignment);
     
-    ++sam_buff->count;
+    ++sam_buff->buffered_count;
 
-    if ( sam_buff->count > sam_buff->max_count )
+    if ( sam_buff->buffered_count > sam_buff->max_count )
     {
-	sam_buff->max_count = sam_buff->count;
+	sam_buff->max_count = sam_buff->buffered_count;
 	// fprintf(stderr, "sam_buff->max_count = %zu\n", sam_buff->max_count);
     }
     
-    if ( sam_buff->count == SAM_BUFF_MAX_SIZE )
+    if ( sam_buff->buffered_count == SAM_BUFF_MAX_SIZE )
     {
 	fprintf(stderr,
 		"sam_buff_add_alignment(): Hit SAM_BUFF_MAX_SIZE=%u.\n",
@@ -661,7 +703,7 @@ void    sam_buff_add_alignment(sam_buff_t *sam_buff,
 	exit(EX_DATAERR);
     }
     
-    if ( sam_buff->count == sam_buff->buff_size )
+    if ( sam_buff->buffered_count == sam_buff->buff_size )
     {
 	fprintf(stderr,
 		"sam_buff_add_alignment(): Hit buff_size=%zu, doubling buffer size.\n",
@@ -769,14 +811,14 @@ void    sam_buff_shift(sam_buff_t *sam_buff, size_t c)
 	sam_buff_free_alignment(sam_buff, c2);
 
     /* Shift elements */
-    for (c2 = 0; c2 < sam_buff->count - c; ++c2)
+    for (c2 = 0; c2 < sam_buff->buffered_count - c; ++c2)
 	sam_buff->alignments[c2] = sam_buff->alignments[c2 + c];
     
     /* Clear vacated elements */
-    while ( c2 < sam_buff->count )
+    while ( c2 < sam_buff->buffered_count )
 	sam_buff->alignments[c2++] = NULL;
     
-    sam_buff->count -= c;
+    sam_buff->buffered_count -= c;
 }
 
 
@@ -791,7 +833,7 @@ void    stats_update_discarded(ad2vcf_stats_t *stats,
 			       sam_alignment_t *sam_alignment)
 
 {
-    ++stats->discarded_sam_alignments;
+    ++stats->discarded_alignments;
     stats->discarded_score_sum += SAM_MAPQ(sam_alignment);
     if ( SAM_MAPQ(sam_alignment) < stats->min_discarded_score )
 	stats->min_discarded_score = SAM_MAPQ(sam_alignment);
@@ -804,3 +846,24 @@ void    stats_update_discarded(ad2vcf_stats_t *stats,
 	    SAM_MAPQ(sam_alignment));
 #endif
 }
+
+
+void    ad2vcf_stats_init(ad2vcf_stats_t *stats)
+
+{
+    stats->total_vcf_calls = 0;
+    stats->total_alignments = 0;
+    stats->trailing_alignments = 0;
+    stats->discarded_alignments = 0;
+    stats->discarded_score_sum = 0;
+    stats->min_discarded_score = SIZE_MAX;
+    stats->max_discarded_score = 0;
+    stats->discarded_trailing = 0;
+    stats->total_ref_alleles = 0;
+    stats->total_alt_alleles = 0;
+    stats->total_other_alleles = 0;
+    stats->min_depth = SIZE_MAX;
+    stats->max_depth = 0;
+    stats->mean_depth = 0;
+}
+

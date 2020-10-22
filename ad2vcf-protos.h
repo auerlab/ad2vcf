@@ -16,3 +16,4 @@ void sam_buff_free_alignment(sam_buff_t *sam_buff, size_t c);
 void sam_buff_shift(sam_buff_t *sam_buff, size_t c);
 int uchar_cmp(unsigned char *c1, unsigned char *c2);
 void stats_update_discarded(ad2vcf_stats_t *stats, sam_alignment_t *sam_alignment);
+void ad2vcf_stats_init(ad2vcf_stats_t *stats);

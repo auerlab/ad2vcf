@@ -35,22 +35,32 @@ typedef struct
 {
     size_t          buff_size;;
     sam_alignment_t **alignments;
-    size_t          count;
+    size_t          buffered_count;
     size_t          max_count;
     size_t          previous_pos;
-    unsigned int    mapq_min;
     char            previous_rname[SAM_RNAME_MAX_CHARS + 1];
+    
+    uint64_t        mapq_min;
+    uint64_t        mapq_low;
+    uint64_t        mapq_high;
+    uint64_t        mapq_sum;
+    uint64_t        reads_used;
 }   sam_buff_t;
 
 #define SAM_BUFF_MAPQ_MIN(sam_buff) ((sam_buff)->mapq_min)
+#define SAM_BUFF_MAPQ_SUM(sam_buff) ((sam_buff)->mapq_sum)
+#define SAM_BUFF_MAPQ_LOW(sam_buff) ((sam_buff)->mapq_low)
+#define SAM_BUFF_MAPQ_HIGH(sam_buff) ((sam_buff)->mapq_high)
+#define SAM_BUFF_READS_USED(sam_buff) ((sam_buff)->reads_used)
 
-#define AD2VCF_STATS_INIT   { 0, 0, 0, 0, SIZE_MAX, 0, 0, 0, 0, SIZE_MAX, 0, 0 }
 typedef struct
 {
     size_t  total_vcf_calls,
-	    total_sam_alignments,
-	    discarded_sam_alignments,
+	    total_alignments,
+	    trailing_alignments,
+	    discarded_alignments,
 	    discarded_score_sum,
+	    discarded_trailing,
 	    min_discarded_score,
 	    max_discarded_score,
 	    total_ref_alleles,
