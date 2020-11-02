@@ -8,7 +8,7 @@ argument.  This allows expensive BAM/CRAM decoding to occur in-parallel using
 a pipe:
 
 ```sh
-samtools view -@ 2 --input-fmt-option required_fields=0x208 \
+samtools view -@ 2 --input-fmt-option required_fields=0x218 \
 	../SRR6990379/NWD102903.b38.irc.v1.cram \
 	| ./ad2vcf file.vcf
 ```
