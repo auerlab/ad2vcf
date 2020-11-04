@@ -40,11 +40,20 @@ typedef struct
     size_t          previous_pos;
     char            previous_rname[SAM_RNAME_MAX_CHARS + 1];
     
-    uint64_t        mapq_min;
-    uint64_t        mapq_low;
-    uint64_t        mapq_high;
-    uint64_t        mapq_sum;
-    uint64_t        reads_used;
+    // Use 64 bits to accommodate large sums
+    size_t          mapq_min,
+		    mapq_low,
+		    mapq_high,
+		    mapq_sum,
+		    reads_used,
+		    total_alignments,
+		    trailing_alignments,
+		    discarded_alignments,
+		    discarded_score_sum,
+		    discarded_trailing,
+		    min_discarded_score,
+		    max_discarded_score,
+		    unmapped_alignments;
 }   sam_buff_t;
 
 #define SAM_BUFF_MAPQ_MIN(sam_buff) ((sam_buff)->mapq_min)
@@ -53,16 +62,14 @@ typedef struct
 #define SAM_BUFF_MAPQ_HIGH(sam_buff) ((sam_buff)->mapq_high)
 #define SAM_BUFF_READS_USED(sam_buff) ((sam_buff)->reads_used)
 
+/*
+ *  FIXME: This is a foster home for a random collection of unrelated stats.
+ *  Find these data a permanent home.
+ */
+
 typedef struct
 {
     size_t  total_vcf_calls,
-	    total_alignments,
-	    trailing_alignments,
-	    discarded_alignments,
-	    discarded_score_sum,
-	    discarded_trailing,
-	    min_discarded_score,
-	    max_discarded_score,
 	    total_ref_alleles,
 	    total_alt_alleles,
 	    total_other_alleles,

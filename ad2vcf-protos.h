@@ -15,5 +15,5 @@ void vcf_out_of_order(vcf_call_t *vcf_call, char *previous_chromosome, size_t pr
 void sam_buff_free_alignment(sam_buff_t *sam_buff, size_t c);
 void sam_buff_shift(sam_buff_t *sam_buff, size_t c);
 int uchar_cmp(unsigned char *c1, unsigned char *c2);
-void stats_update_discarded(ad2vcf_stats_t *stats, sam_alignment_t *sam_alignment);
+_Bool sam_buff_alignment_ok(sam_buff_t *sam_buff, sam_alignment_t *sam_alignment);
 void ad2vcf_stats_init(ad2vcf_stats_t *stats);

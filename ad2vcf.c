@@ -22,6 +22,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <sys/param.h>  // MIN()
+#include <htslib/sam.h> // BAM_FUNMAP
 #include <vcfio.h>
 #include <samio.h>
 #include <biostring.h>
@@ -218,33 +219,33 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     puts("Gathering stats on trailing alignments...");
     while ( sam_alignment_read(sam_stream, &sam_alignment) )
     {
-	++stats.total_alignments;
-	++stats.trailing_alignments;
-	if ( SAM_MAPQ(&sam_alignment) < SAM_BUFF_MAPQ_MIN(&sam_buff) )
-	{
-	    stats_update_discarded(&stats, &sam_alignment);
-	    ++stats.discarded_trailing;
-	}
+	++sam_buff.total_alignments;
+	++sam_buff.trailing_alignments;
+	if ( !sam_buff_alignment_ok(&sam_buff, &sam_alignment) )
+	    ++sam_buff.discarded_trailing;
     }
 #endif
 
     printf("\nFinal statistics:\n\n");
     printf("%zu VCF calls processed\n", stats.total_vcf_calls);
-    printf("%zu SAM alignments processed\n", stats.total_alignments);
+    printf("%zu SAM alignments processed\n", sam_buff.total_alignments);
     printf("Max buffered alignments: %zu\n", sam_buff.max_count);
-    printf("%zu total SAM alignments discarded (%zu%%)\n",
-	    stats.discarded_alignments, 
-	    stats.discarded_alignments * 100 / stats.total_alignments);
+    printf("%zu low MAPQ alignments discarded (%zu%%)\n",
+	    sam_buff.discarded_alignments, 
+	    sam_buff.discarded_alignments * 100 / sam_buff.total_alignments);
+    printf("%zu unmapped alignments discarded (%zu%%)\n",
+	    sam_buff.unmapped_alignments, 
+	    sam_buff.unmapped_alignments * 100 / sam_buff.total_alignments);
 #ifdef DEBUG
-    printf("%zu SAM alignments beyond last call.\n", stats.trailing_alignments);
+    printf("%zu SAM alignments beyond last call.\n", sam_buff.trailing_alignments);
     printf("%zu trailing SAM alignments discarded (%zu%%)\n",
-	    stats.discarded_trailing, 
-	    stats.discarded_trailing * 100 / stats.trailing_alignments);
+	    sam_buff.discarded_trailing, 
+	    sam_buff.discarded_trailing * 100 / sam_buff.trailing_alignments);
 #endif
-    if ( stats.discarded_alignments != 0 )
+    if ( sam_buff.discarded_alignments != 0 )
 	printf("MAPQ min discarded = %zu  max discarded = %zu  mean = %f\n",
-		stats.min_discarded_score, stats.max_discarded_score,
-		(double)stats.discarded_score_sum / stats.discarded_alignments);
+		sam_buff.min_discarded_score, sam_buff.max_discarded_score,
+		(double)sam_buff.discarded_score_sum / sam_buff.discarded_alignments);
     printf("MAPQ min used = %zu  max used = %zu  mean = %f\n",
 	    SAM_BUFF_MAPQ_LOW(&sam_buff), SAM_BUFF_MAPQ_HIGH(&sam_buff),
 	    (double)SAM_BUFF_MAPQ_SUM(&sam_buff) / SAM_BUFF_READS_USED(&sam_buff));
@@ -325,16 +326,14 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
     {
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
-	    ++stats->total_alignments;
+	    ++sam_buff->total_alignments;
 	    /*
 	    fprintf(stderr, "sam_alignment_read(): %s,%zu,%zu,%zu,%u\n",
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 		    SAM_SEQ_LEN(&sam_alignment), SAM_QUAL_LEN(&sam_alignment),
 		    SAM_MAPQ(&sam_alignment));
 	    */
-	    if ( SAM_MAPQ(&sam_alignment) < SAM_BUFF_MAPQ_MIN(sam_buff) )
-		stats_update_discarded(stats, &sam_alignment);
-	    else
+	    if ( sam_buff_alignment_ok(sam_buff, &sam_alignment) )
 	    {
 		/*
 		 *  We're done when we find an alignment overlapping or after
@@ -406,15 +405,13 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 	/* Read and buffer more alignments from the stream */
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment)) )
 	{
-	    ++stats->total_alignments;
+	    ++sam_buff->total_alignments;
 	    /*
 	    fprintf(stderr, "sam_alignment_read(): Read %s,%zu,%zu,%u\n",
 		    SAM_RNAME(&sam_alignment), SAM_POS(&sam_alignment),
 		    SAM_SEQ_LEN(&sam_alignment), SAM_MAPQ(&sam_alignment));
 	    */
-	    if ( SAM_MAPQ(&sam_alignment) < SAM_BUFF_MAPQ_MIN(sam_buff) )
-		stats_update_discarded(stats, &sam_alignment);
-	    else
+	    if ( sam_buff_alignment_ok(sam_buff, &sam_alignment) )
 	    {
 #ifdef DEBUG
 		fprintf(stderr, "depth(): Buffering new alignment #%zu %s,%zu,%zu\n",
@@ -627,6 +624,15 @@ void    sam_buff_init(sam_buff_t *sam_buff, unsigned int mapq_min)
     sam_buff->mapq_high = 0;
     sam_buff->mapq_sum = 0;
     sam_buff->reads_used = 0;
+
+    sam_buff->total_alignments = 0;
+    sam_buff->trailing_alignments = 0;
+    sam_buff->discarded_alignments = 0;
+    sam_buff->discarded_score_sum = 0;
+    sam_buff->min_discarded_score = SIZE_MAX;
+    sam_buff->max_discarded_score = 0;
+    sam_buff->discarded_trailing = 0;
+    sam_buff->unmapped_alignments = 0;
     
     /*
      *  Dynamically allocating the pointers is probably senseless since they
@@ -829,22 +835,37 @@ int     uchar_cmp(unsigned char *c1, unsigned char *c2)
 }
 
 
-void    stats_update_discarded(ad2vcf_stats_t *stats,
-			       sam_alignment_t *sam_alignment)
+bool    sam_buff_alignment_ok(sam_buff_t *sam_buff,
+			      sam_alignment_t *sam_alignment)
 
 {
-    ++stats->discarded_alignments;
-    stats->discarded_score_sum += SAM_MAPQ(sam_alignment);
-    if ( SAM_MAPQ(sam_alignment) < stats->min_discarded_score )
-	stats->min_discarded_score = SAM_MAPQ(sam_alignment);
-    if ( SAM_MAPQ(sam_alignment) > stats->max_discarded_score )
-	stats->max_discarded_score = SAM_MAPQ(sam_alignment);
+    if ( sam_alignment->flag & BAM_FUNMAP )
+    {
+	++sam_buff->unmapped_alignments;
+#ifdef DEBUG
+	fprintf(stderr, "Discarding unmapped read: %s,%zu\n",
+		SAM_RNAME(sam_alignment), SAM_POS(sam_alignment));
+#endif
+	return false;
+    }
+    else if ( SAM_MAPQ(sam_alignment) < SAM_BUFF_MAPQ_MIN(sam_buff) )
+    {
+	++sam_buff->discarded_alignments;
+	sam_buff->discarded_score_sum += SAM_MAPQ(sam_alignment);
+	if ( SAM_MAPQ(sam_alignment) < sam_buff->min_discarded_score )
+	    sam_buff->min_discarded_score = SAM_MAPQ(sam_alignment);
+	if ( SAM_MAPQ(sam_alignment) > sam_buff->max_discarded_score )
+	    sam_buff->max_discarded_score = SAM_MAPQ(sam_alignment);
 
 #ifdef DEBUG
-    fprintf(stderr, "Discarding low quality read: %s,%zu MAPQ=%u\n",
-	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
-	    SAM_MAPQ(sam_alignment));
+	fprintf(stderr, "Discarding low quality read: %s,%zu MAPQ=%u\n",
+		SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
+		SAM_MAPQ(sam_alignment));
 #endif
+	return false;
+    }
+    else
+	return true;
 }
 
 
@@ -852,13 +873,6 @@ void    ad2vcf_stats_init(ad2vcf_stats_t *stats)
 
 {
     stats->total_vcf_calls = 0;
-    stats->total_alignments = 0;
-    stats->trailing_alignments = 0;
-    stats->discarded_alignments = 0;
-    stats->discarded_score_sum = 0;
-    stats->min_discarded_score = SIZE_MAX;
-    stats->max_discarded_score = 0;
-    stats->discarded_trailing = 0;
     stats->total_ref_alleles = 0;
     stats->total_alt_alleles = 0;
     stats->total_other_alleles = 0;
