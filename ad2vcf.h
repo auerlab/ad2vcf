@@ -30,6 +30,12 @@
 #define     PHRED_MIN               20
 #define     PHRED_BASE              33
 
+// Yes, we actually saw a few INFO fields over 512k in some dbGap BCFs
+// Match this with vcf-split
+#define VCF_INFO_MAX_CHARS          1048576
+#define VCF_FORMAT_MAX_CHARS        4096
+#define VCF_SAMPLE_MAX_CHARS        2048
+
 // FIXME: Move this to samio when complete?
 typedef struct
 {
