@@ -22,7 +22,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <sys/param.h>  // MIN()
-#include <htslib/sam.h> // BAM_FUNMAP
 #include <vcfio.h>
 #include <samio.h>
 #include <biostring.h>

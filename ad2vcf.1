@@ -38,9 +38,9 @@ Output is compressed uzing xz and saved in file-ad.vcf.xz.
 Both files must be sorted by chromosome and position.  Otherwise, it would
 not be possible to perform this task in a single pass.  Since a single read
 in the SAM stream could overlap multiple VCF calls, SAM alignments are cached
-until the next call in the VCF stream is beyond the end of the read. 
-Usually this only results in a few SAM alignments being held in memory at
-the same time, but in very rare cases, we've seen hundreds of thousands for
+until the next call in the VCF stream is beyond the end of the read. Usually
+this results in no more than a few thousand SAM alignments being held in
+memory at once, but in very rare cases, we've seen hundreds of thousands for
 a particular sample.
 
 Processing a single-sample human VCF and CRAM file from SRA takes about

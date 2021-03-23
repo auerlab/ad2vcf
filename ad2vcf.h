@@ -3,7 +3,15 @@
 #include <stdint.h>
 #endif
 
-#define     CMD_MAX                 128
+/*
+ *  Copied from htslib/sam.h to avoid an htslib dependency.  It should be
+ *  safe to assume this will never change, since changing it would break
+ *  all existing SAM/BAM/CRAM files.
+ */
+#define     BAM_FUNMAP  4
+
+#define     CMD_MAX     128
+
 /*
     256k was not enough for a few of the SRA CRAMs.
     NWD976804 needed more than 512k.  Bad data?
