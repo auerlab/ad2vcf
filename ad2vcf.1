@@ -1,0 +1,62 @@
+.TH AD2VCF 1
+.SH NAME
+.PP
+
+AD2VCF \- Extract allelic depth from a SAM stream and add to VCF files
+
+\" Convention:
+\" Underline anything that is typed verbatim - commands, etc.
+.SH SYNOPSIS
+.PP
+.nf 
+.na 
+ad2vcf file.vcf minimum-MAPQ < file.sam
+samtools view file.{bam|cram} | ad2vcf file.vcf minimum-MAPQ
+.ad
+.fi
+
+.SH "PURPOSE"
+
+.B ad2vcf
+is designed to augment VCF files lacking allelic depth (AD in FORMAT) with
+allelic depth extracted from a SAM stream for the same sample used to
+generate the VCF.
+
+It was specifically created for a TOPMed project to augment dbGaP BCF files
+lacking AD info in preparation for use with haplohseq, which requires
+either NGS data with AD info or micro-array data.
+
+.SH "DESCRIPTION"
+
+.B ad2vcf
+scans a single-sample VCF file one call at a time and simultaneously scans
+the SAM stream for the same sample, extracting the alleles from the read
+sequence for each call position in the VCF.
+
+Output is compressed uzing xz and saved in file-ad.vcf.xz.
+
+Both files must be sorted by chromosome and position.  Otherwise, it would
+not be possible to perform this task in a single pass.  Since a single read
+in the SAM stream could overlap multiple VCF calls, SAM alignments are cached
+until the next call in the VCF stream is beyond the end of the read. 
+Usually this only results in a few SAM alignments being held in memory at
+the same time, but in very rare cases, we've seen hundreds of thousands for
+a particular sample.
+
+Processing a single-sample human VCF and CRAM file from SRA takes about
+15 to 30 minutes on a typical processor, with CRAM decoding being a major
+bottleneck due to it's complex compression.  For this reason, ad2vcf was
+intentionally designed as a filter, so that it can utilize a second core
+while samtools view saturates the first core decoding the CRAM file.
+
+.SH "SEE ALSO"
+vcf-split, haplohseq
+
+.SH BUGS
+Please report bugs to the author and send patches in unified diff format.
+(man diff for more information)
+
+.SH AUTHOR
+.nf
+.na
+J. Bacon
