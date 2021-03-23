@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-../ad2vcf test.vcf < test.sam
+../ad2vcf test.vcf 10 < test.sam
 
 cat << EOM
 
@@ -26,12 +26,12 @@ EOM
 
 set +e
 printf "=== test-bad-pos.vcf\n"
-../ad2vcf test-bad-pos.vcf < test.sam
+../ad2vcf test-bad-pos.vcf 10 < test.sam
 printf "=== test-bad-chr.vcf\n"
-../ad2vcf test-bad-chr.vcf < test.sam
+../ad2vcf test-bad-chr.vcf 10 < test.sam
 
 printf "=== test-bad-pos.sam\n"
-../ad2vcf test.vcf < test-bad-pos.sam
+../ad2vcf test.vcf 10 < test-bad-pos.sam
 printf "=== test-bad-chr.sam\n"
-../ad2vcf test.vcf < test-bad-chr.sam
+../ad2vcf test.vcf 10 < test-bad-chr.sam
 rm test-ad.vcf
