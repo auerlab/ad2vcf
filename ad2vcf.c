@@ -62,7 +62,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     sam_buff_t      sam_buff;
     FILE            *vcf_in_stream,
 		    *vcf_out_stream;
-    vcf_call_t      vcf_call = VCF_INIT;
+    vcf_call_t      vcf_call = VCF_CALL_INIT;
     bool            xz = false,
 		    more_alignments;
     size_t          previous_vcf_pos,
