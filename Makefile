@@ -44,7 +44,7 @@
 # Installed targets
 
 BIN     = ad2vcf
-# MAN     = ad2vcf.1
+MAN     = ad2vcf.1
 
 ############################################################################
 # List object files that comprise BIN.
@@ -155,17 +155,9 @@ realclean: clean
 # Install all target files (binaries, libraries, docs, etc.)
 
 install: all
-	${MKDIR} -p ${DESTDIR}${PREFIX}/bin ${DESTDIR}${PREFIX}/man/man1
+	${MKDIR} -p ${DESTDIR}${PREFIX}/bin ${DESTDIR}${MANPREFIX}/man/man1
 	${INSTALL} ${BIN} ${DESTDIR}${PREFIX}/bin
-
-#        ${INSTALL} -m 0444 ${MAN} ${DESTDIR}${MANPREFIX}/man/man1
-
-############################################################################
-# Remove all installed files
-
-uninstall:
-	${RM} ${PREFIX}/bin/${BIN}
-	${RM} ${MANPREFIX}/man/man1/${MAN}
+	${INSTALL} -m 0444 ${MAN} ${DESTDIR}${MANPREFIX}/man/man1
 
 help:
 	@printf "Usage: make [VARIABLE=value ...] all\n\n"
