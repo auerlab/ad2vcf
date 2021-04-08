@@ -71,7 +71,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     ad2vcf_stats_t  stats;
     char            cmd[CMD_MAX + 1],
 		    vcf_out_filename[PATH_MAX + 1],
-		    previous_vcf_chromosome[VCF_CHROMOSOME_MAX_CHARS + 1] = "",
+		    previous_vcf_chromosome[BIO_CHROMOSOME_MAX_CHARS + 1] = "",
 		    *ext,
 		    *end;
     const char      *vcf_filename = argv[1];
@@ -164,7 +164,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    VCF_CHROMOSOME(&vcf_call));
 	    fflush(stdout);
 	    strlcpy(previous_vcf_chromosome, VCF_CHROMOSOME(&vcf_call),
-		    VCF_CHROMOSOME_MAX_CHARS);
+		    BIO_CHROMOSOME_MAX_CHARS);
 	    previous_vcf_pos = VCF_POS(&vcf_call);
 	}
 	
