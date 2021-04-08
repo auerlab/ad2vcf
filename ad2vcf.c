@@ -132,7 +132,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     vcf_call_init(&vcf_call, VCF_INFO_MAX_CHARS, VCF_FORMAT_MAX_CHARS,
 		  VCF_SAMPLE_MAX_CHARS);
     
-    while ( vcf_read_ss_call(vcf_in_stream, &vcf_call) == VCF_OK )
+    while ( vcf_read_ss_call(vcf_in_stream, &vcf_call) == BIO_READ_OK )
     {
 	++stats.total_vcf_calls;
 	
