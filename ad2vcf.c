@@ -22,6 +22,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <sys/param.h>  // MIN()
+#include <xtend.h>
 #include <vcfio.h>
 #include <samio.h>
 #include <biostring.h>
@@ -643,7 +644,7 @@ void    sam_buff_init(sam_buff_t *sam_buff, unsigned int mapq_min)
      *  We may save a few megabytes with this, though.
      */
     sam_buff->alignments =
-	(sam_alignment_t **)malloc(sam_buff->buff_size *
+	(sam_alignment_t **)xt_malloc(sam_buff->buff_size,
 				   sizeof(sam_alignment_t **));
     for (c = 0; c < sam_buff->buff_size; ++c)
 	sam_buff->alignments[c] = NULL;
@@ -677,7 +678,8 @@ void    sam_buff_add_alignment(sam_buff_t *sam_buff,
     if ( sam_buff->alignments[sam_buff->buffered_count] == NULL )
     {
 	//fprintf(stderr, "Allocating alignment #%zu\n", sam_buff->buffered_count);
-	sam_buff->alignments[sam_buff->buffered_count] = malloc(sizeof(sam_alignment_t));
+	sam_buff->alignments[sam_buff->buffered_count] = 
+	    xt_malloc(1, sizeof(sam_alignment_t));
 	if ( sam_buff->alignments[sam_buff->buffered_count] == NULL )
 	{
 	    fprintf(stderr, "sam_buff_add_alignment(): malloc() failed.\n");
