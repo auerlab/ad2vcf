@@ -3,6 +3,8 @@
  *      Pull AD (allelic depth) info from a SAM stream and insert it
  *      into a VCF file.
  *
+ *  FIXME: Factor out sam_buff functions to biolibc
+ *
  *  Arguments:
  *
  *  Returns:
@@ -304,7 +306,7 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
      *  since the calls must be sorted in ascending order.
      */
     for (c = 0; (c < sam_buff->buffered_count) &&
-		alignment_upstream_of_call(vcf_call, sam_buff->alignments[c]); ++c)
+		vcf_call_downstream_of_alignment(vcf_call, sam_buff->alignments[c]); ++c)
     {
 #ifdef DEBUG
 	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu upstream of variant %s,%zu\n",
@@ -340,7 +342,7 @@ bool    skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
 		 *  We're done when we find an alignment overlapping or after
 		 *  the VCF call
 		 */
-		if ( ! alignment_upstream_of_call(vcf_call, &sam_alignment) )
+		if ( ! vcf_call_downstream_of_alignment(vcf_call, &sam_alignment) )
 		    break;
 #ifdef DEBUG
 		else
@@ -389,7 +391,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 
     /* Check and discard already buffered alignments */
     for (c = 0; (c < sam_buff->buffered_count) &&
-		(overlapping = call_in_alignment(vcf_call, sam_buff->alignments[c]));
+		(overlapping = vcf_call_in_alignment(vcf_call, sam_buff->alignments[c]));
 		++c)
     {
 #ifdef DEBUG
@@ -421,7 +423,7 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
 #endif
 		sam_buff_add_alignment(sam_buff, &sam_alignment);
 		
-		if ( call_in_alignment(vcf_call, &sam_alignment) )
+		if ( vcf_call_in_alignment(vcf_call, &sam_alignment) )
 		{
 #ifdef DEBUG
 		    fprintf(stderr, "depth(): Counting new alignment %s,%zu containing call %s,%zu\n",
@@ -443,55 +445,6 @@ bool    allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
     }
 
     return ma;
-}
-
-
-/***************************************************************************
- *  Description:
- *      Determine whether a VCF call is within a SAM alignment.
- *
- *  History: 
- *  Date        Name        Modification
- *  2020-05-26  Jason Bacon Begin
- ***************************************************************************/
-
-bool    call_in_alignment(vcf_call_t *vcf_call, sam_alignment_t *sam_alignment)
-
-{
-    if ( (strcmp(VCF_CHROMOSOME(vcf_call), SAM_RNAME(sam_alignment)) == 0) &&
-	 (VCF_POS(vcf_call) >= SAM_POS(sam_alignment)) &&
-	 (VCF_POS(vcf_call) <
-	    SAM_POS(sam_alignment) + SAM_SEQ_LEN(sam_alignment)) )
-	return true;
-    else
-	return false;
-}
-
-
-/***************************************************************************
- *  Description:
- *      Determine SAM alignment is completely upstream of a VCF call position,
- *      i.e. not overlapping and at a lower position or chromosome.
- *
- *  History: 
- *  Date        Name        Modification
- *  2020-05-26  Jason Bacon Begin
- ***************************************************************************/
-
-bool    alignment_upstream_of_call(vcf_call_t *vcf_call, sam_alignment_t *alignment)
-
-{
-    /*fprintf(stderr, "alignment_upstream_of_call(): %s,%zu,%zu %s,%zu\n",
-	    SAM_RNAME(sam_alignment),SAM_POS(sam_alignment),
-	    SAM_SEQ_LEN(sam_alignment),
-	    VCF_CHROMOSOME(vcf_call),VCF_POS(vcf_call));*/
-    if ( (SAM_POS(alignment) + SAM_SEQ_LEN(alignment) <= VCF_POS(vcf_call)) &&
-	  (strcmp(SAM_RNAME(alignment), VCF_CHROMOSOME(vcf_call)) == 0) )
-	return true;
-    else if ( chromosome_name_cmp(SAM_RNAME(alignment), VCF_CHROMOSOME(vcf_call)) < 0 )
-	return true;
-    else
-	return false;
 }
 
 
@@ -747,27 +700,6 @@ void    sam_buff_out_of_order(sam_buff_t *sam_buff, sam_alignment_t *sam_alignme
     fprintf(stderr, "Found %s,%zu after %s,%zu.\n",
 	    SAM_RNAME(sam_alignment), SAM_POS(sam_alignment),
 	    sam_buff->previous_rname, sam_buff->previous_pos);
-    exit(EX_DATAERR);
-}
-
-
-/***************************************************************************
- *  Description:
- *      Explain VCF input sort error and exit.
- *
- *  History: 
- *  Date        Name        Modification
- *  2020-05-27  Jason Bacon Begin
- ***************************************************************************/
-
-void    vcf_out_of_order(vcf_call_t *vcf_call,
-			 char *previous_chromosome, size_t previous_pos)
-
-{
-    fprintf(stderr, "ad2vcf: Error: VCF input must be sorted by chromosome and then position.\n");
-    fprintf(stderr, "Found %s,%zu after %s,%zu.\n",
-	    VCF_CHROMOSOME(vcf_call), VCF_POS(vcf_call),
-	    previous_chromosome, previous_pos);
     exit(EX_DATAERR);
 }
 
