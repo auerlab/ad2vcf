@@ -1,6 +1,6 @@
 # ad2vcf
 
-ad2vdf extracts allelic depth info from a SAM stream and adds it to a
+ad2vcf extracts allelic depth info from a SAM stream and adds it to a
 corresponding single-sample VCF file.
 
 SAM input is read via stdin and the VCF input file is taken as a command-line
@@ -17,11 +17,14 @@ ad2vcf is written entirely in C and attempts to optimize CPU, memory,
 and disk access.  It does not inhale large amounts of data into RAM, so memory
 use is trivial and it runs mostly from cache, making it very fast.
 
-Processing a large CRAM file with human genome alignments from the SRA project
-takes about 20 minutes on a modern workstation or server.
+Processing a large CRAM file with human genome alignments against from the SRA
+project against dbGaP VCF data takes about 20 minutes on a modern workstation
+or server with ad2vcf averaging 4 to 5 MB (not GB) resident memory use.
+Memory use will spike briefly due to alignment buffering when processing
+regions where many alignments overlap multiple variant calls.
 
-In order to make this possible, both SAM and VCF inputs must be sorted first
-by chromosome and then by read/call position.
+Both SAM and VCF inputs must be sorted first by chromosome and then by
+read/call position.
 
 ad2vcf is intended to build cleanly in any POSIX environment.  Please
 don't hesitate to open an issue if you encounter problems on any
