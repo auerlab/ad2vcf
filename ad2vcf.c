@@ -23,9 +23,8 @@
 #include <errno.h>
 #include <sys/param.h>  // MIN()
 #include <xtend.h>
-#include <vcfio.h>
-#include <sam-buff.h>
-#include <biostring.h>
+#include <biolibc/vcf.h>
+#include <biolibc/sam-buff.h>
 #include "ad2vcf.h"
 
 int     main(int argc, const char *argv[])
