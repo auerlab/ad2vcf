@@ -1,0 +1,7 @@
+ad2vcf.o: ad2vcf.c /usr/local/include/xtend.h \
+  /usr/local/include/xtend-protos.h /usr/local/include/biolibc/vcf.h \
+  /usr/local/include/biolibc/dsv.h /usr/local/include/biolibc/biolibc.h \
+  /usr/local/include/biolibc/sam.h /usr/local/include/biolibc/sam-buff.h \
+  ad2vcf.h ad2vcf-protos.h
+	${CC} -c ${CFLAGS} ad2vcf.c
+
