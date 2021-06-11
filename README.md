@@ -113,7 +113,7 @@ available package sets.
 Below are cave man install instructions for development purposes, not
 recommended for regular use.
 
-ad2vcf depends on [biolibc](https://github.com/outpaddling/biolibc).
+ad2vcf depends on [biolibc](https://github.com/auerlab/biolibc).
 Install biolibc before attempting to build ad2vcf.
 
 1. Clone the repository
