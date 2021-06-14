@@ -64,7 +64,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     vcf_call_t      vcf_call = VCF_CALL_INIT;
     bool            xz = false,
 		    more_alignments;
-    size_t          previous_vcf_pos,
+    size_t          previous_vcf_pos = 0,
 		    total_alleles,
 		    depth,
 		    depth_sum = 0;
