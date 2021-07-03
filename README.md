@@ -41,7 +41,8 @@ regions where many alignments overlap multiple variant calls.
 
 ## Building and installing
 
-ad2vcf is intended to build cleanly in any POSIX environment.  Please
+ad2vcf is intended to build cleanly in any POSIX environment on
+any CPU architecture.  Please
 don't hesitate to open an issue if you encounter problems on any
 Unix-like system.
 
