@@ -25,6 +25,7 @@
 #include <xtend.h>
 #include <biolibc/vcf.h>
 #include <biolibc/sam-buff.h>
+#include <biolibc/biostring.h>  // chromosome_name_cmp()
 #include "ad2vcf.h"
 
 int     main(int argc, const char *argv[])
