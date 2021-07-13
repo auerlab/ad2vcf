@@ -305,7 +305,7 @@ int     skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
     static sam_alignment_t sam_alignment = SAM_ALIGNMENT_INIT;
 
     if ( sam_alignment.seq == NULL )
-	sam_alignment_init(&sam_alignment, SAM_SEQ_MAX_CHARS);
+	sam_alignment_init(&sam_alignment, SAM_SEQ_MAX_CHARS, REQUIRED_SAM_FIELDS);
     
     /*
      *  Check and discard already buffered alignments upstream of the given
@@ -396,7 +396,7 @@ int     allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
     static sam_alignment_t sam_alignment = SAM_ALIGNMENT_INIT;
 
     if ( sam_alignment.seq == NULL )
-	sam_alignment_init(&sam_alignment, SAM_SEQ_MAX_CHARS);
+	sam_alignment_init(&sam_alignment, SAM_SEQ_MAX_CHARS, REQUIRED_SAM_FIELDS);
 
     /* Check and discard already buffered alignments */
     for (c = 0; (c < SAM_BUFF_BUFFERED_COUNT(sam_buff)) &&
