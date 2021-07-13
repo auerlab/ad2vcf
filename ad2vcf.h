@@ -3,11 +3,17 @@
 #include <stdint.h>
 #endif
 
-#define     CMD_MAX     128
+#define CMD_MAX     128
 
 // FIXME: These should be command line arguments
-#define     PHRED_MIN               20
-#define     PHRED_BASE              33
+#define PHRED_MIN   20
+#define PHRED_BASE  33
+
+#define REQUIRED_SAM_FIELDS \
+	SAM_FIELD_RNAME | \
+	SAM_FIELD_POS | \
+	SAM_FIELD_SEQ | \
+	SAM_FIELD_MAPQ
 
 // Yes, we actually saw a few INFO fields over 512k in some dbGap BCFs
 // Match this with vcf-split

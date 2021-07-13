@@ -219,7 +219,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     // Debug discarded count
     puts("Gathering stats on trailing alignments...");
     while ( sam_alignment_read(sam_stream, &sam_alignment,
-			       SAM_FIELD_ALL) == BIO_READ_OK )
+			       REQUIRED_SAM_FIELDS) == BIO_READ_OK )
     {
 	SAM_BUF_INC_TOTAL_ALIGNMENTS(&sam_buff);
 	SAM_BUF_INC_TRAILING_ALIGNMENTS(&sam_buff);
@@ -336,7 +336,7 @@ int     skip_upstream_alignments(vcf_call_t *vcf_call, FILE *sam_stream,
     if ( SAM_BUFF_BUFFERED_COUNT(sam_buff) == 0 )
     {
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment,
-					 SAM_FIELD_ALL)) == BIO_READ_OK )
+					 REQUIRED_SAM_FIELDS)) == BIO_READ_OK )
 	{
 	    SAM_BUFF_INC_TOTAL_ALIGNMENTS(sam_buff);
 	    /*
@@ -418,7 +418,7 @@ int     allelic_depth(vcf_call_t *vcf_call, FILE *sam_stream,
     {
 	/* Read and buffer more alignments from the stream */
 	while ( (ma = sam_alignment_read(sam_stream, &sam_alignment,
-					 SAM_FIELD_ALL)) == BIO_READ_OK )
+					 REQUIRED_SAM_FIELDS)) == BIO_READ_OK )
 	{
 	    SAM_BUFF_INC_TOTAL_ALIGNMENTS(sam_buff);
 	    /*
