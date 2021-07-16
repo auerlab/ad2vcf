@@ -17,9 +17,9 @@
 
 // Yes, we actually saw a few INFO fields over 512k in some dbGap BCFs
 // Match this with vcf-split
-#define VCF_INFO_MAX_CHARS          1048576
-#define VCF_FORMAT_MAX_CHARS        4096
-#define VCF_SAMPLE_MAX_CHARS        2048
+#define BL_VCF_INFO_MAX_CHARS          1048576
+#define BL_VCF_FORMAT_MAX_CHARS        4096
+#define BL_VCF_SAMPLE_MAX_CHARS        2048
 
 /*
  *  FIXME: This is a foster home for a random collection of unrelated stats.
