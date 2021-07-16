@@ -153,7 +153,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    else
 		previous_vcf_pos = BL_VCF_POS(&vcf_call);
 	}
-	else if ( chromosome_name_cmp(BL_VCF_CHROMOSOME(&vcf_call),
+	else if ( bl_chromosome_name_cmp(BL_VCF_CHROMOSOME(&vcf_call),
 				      previous_vcf_chromosome) < 0 )
 	{
 	    vcf_out_of_order(&vcf_call, previous_vcf_chromosome,
