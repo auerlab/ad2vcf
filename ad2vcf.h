@@ -9,11 +9,11 @@
 #define PHRED_MIN   20
 #define PHRED_BASE  33
 
-#define REQUIRED_SAM_FIELDS \
-	SAM_FIELD_RNAME | \
-	SAM_FIELD_POS | \
-	SAM_FIELD_SEQ | \
-	SAM_FIELD_MAPQ
+#define REQUIRED_BL_SAM_FIELDS \
+	BL_SAM_FIELD_RNAME | \
+	BL_SAM_FIELD_POS | \
+	BL_SAM_FIELD_SEQ | \
+	BL_SAM_FIELD_MAPQ
 
 // Yes, we actually saw a few INFO fields over 512k in some dbGap BCFs
 // Match this with vcf-split
