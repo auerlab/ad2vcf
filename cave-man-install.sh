@@ -19,7 +19,9 @@
 # /usr/local/lib, etc.
 case $(uname) in
 *)
-    export CFLAGS="-Wall -g -O"
+    if [ -z "$CFLAGS" ]; then
+	export CFLAGS="-Wall -g -O"
+    fi
     LIBDIR=$(realpath $LOCALBASE/lib)
     export LDFLAGS="-L$LIBDIR -Wl,-rpath,$LIBDIR:/usr/lib:/lib"
     ;;
