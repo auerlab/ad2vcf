@@ -1,5 +1,8 @@
 #!/bin/sh -e
 
+cd ..
+./cave-man-install.sh
+cd Test
 ../ad2vcf test.vcf 10 < test.sam
 
 cat << EOM
