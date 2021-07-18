@@ -130,7 +130,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	exit(EX_CANTCREAT);
     }
 
-    bl_vcf_call_init(&vcf_call, BL_VCF_INFO_MAX_CHARS, BL_VCF_FORMAT_MAX_CHARS,
+    bl_vcf_init(&vcf_call, BL_VCF_INFO_MAX_CHARS, BL_VCF_FORMAT_MAX_CHARS,
 		  BL_VCF_SAMPLE_MAX_CHARS);
     
     while ( bl_vcf_read_ss_call(vcf_in_stream, &vcf_call, BL_VCF_FIELD_ALL) == BL_READ_OK )
@@ -148,7 +148,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	if ( strcmp(BL_VCF_CHROMOSOME(&vcf_call), previous_vcf_chromosome) == 0 )
 	{
 	    if ( BL_VCF_POS(&vcf_call) < previous_vcf_pos )
-		 bl_vcf_out_of_order(&vcf_call, previous_vcf_chromosome,
+		 bl_vcf_call_out_of_order(&vcf_call, previous_vcf_chromosome,
 				  previous_vcf_pos);
 	    else
 		previous_vcf_pos = BL_VCF_POS(&vcf_call);
@@ -156,7 +156,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	else if ( bl_chromosome_name_cmp(BL_VCF_CHROMOSOME(&vcf_call),
 				      previous_vcf_chromosome) < 0 )
 	{
-	    bl_vcf_out_of_order(&vcf_call, previous_vcf_chromosome,
+	    bl_vcf_call_out_of_order(&vcf_call, previous_vcf_chromosome,
 			     previous_vcf_pos);
 	}
 	else
@@ -214,11 +214,11 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 #ifdef DEBUG
     static bl_sam_t sam_alignment = BL_SAM_ALIGNMENT_INIT;
     if ( sam_alignment.seq == NULL )
-	bl_sam_init_alignment(&sam_alignment, BL_SAM_SEQ_MAX_CHARS, REQUIRED_SAM_FIELDS);
+	bl_sam_init(&sam_alignment, BL_SAM_SEQ_MAX_CHARS, REQUIRED_SAM_FIELDS);
 
     // Debug discarded count
     puts("Gathering stats on trailing alignments...");
-    while ( bl_sam_read_alignment(sam_stream, &sam_alignment,
+    while ( bl_sam_read(sam_stream, &sam_alignment,
 			       REQUIRED_SAM_FIELDS) == BL_READ_OK )
     {
 	BL_SAM_BUFF_INC_TOTAL_ALIGNMENTS(&sam_buff);
@@ -306,7 +306,7 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
     static bl_sam_t sam_alignment = BL_SAM_ALIGNMENT_INIT;
 
     if ( sam_alignment.seq == NULL )
-	bl_sam_init_alignment(&sam_alignment, BL_SAM_SEQ_MAX_CHARS, REQUIRED_SAM_FIELDS);
+	bl_sam_init(&sam_alignment, BL_SAM_SEQ_MAX_CHARS, REQUIRED_SAM_FIELDS);
     
     /*
      *  Check and discard already buffered alignments upstream of the given
@@ -336,7 +336,7 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
      */
     if ( BL_SAM_BUFF_BUFFERED_COUNT(sam_buff) == 0 )
     {
-	while ( (ma = (bl_sam_read_alignment(sam_stream, &sam_alignment,
+	while ( (ma = (bl_sam_read(sam_stream, &sam_alignment,
 					 REQUIRED_SAM_FIELDS) == BL_READ_OK)) )
 	{
 	    BL_SAM_BUFF_INC_TOTAL_ALIGNMENTS(sam_buff);
@@ -396,7 +396,7 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
     static bl_sam_t sam_alignment = BL_SAM_ALIGNMENT_INIT;
 
     if ( sam_alignment.seq == NULL )
-	bl_sam_init_alignment(&sam_alignment, BL_SAM_SEQ_MAX_CHARS, REQUIRED_SAM_FIELDS);
+	bl_sam_init(&sam_alignment, BL_SAM_SEQ_MAX_CHARS, REQUIRED_SAM_FIELDS);
 
     /* Check and discard already buffered alignments */
     for (c = 0; (c < BL_SAM_BUFF_BUFFERED_COUNT(sam_buff)) &&
@@ -418,7 +418,7 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
     if ( (c == 0) || overlapping )
     {
 	/* Read and buffer more alignments from the stream */
-	while ( (ma = bl_sam_read_alignment(sam_stream, &sam_alignment,
+	while ( (ma = bl_sam_read(sam_stream, &sam_alignment,
 					 REQUIRED_SAM_FIELDS)) == BL_READ_OK )
 	{
 	    BL_SAM_BUFF_INC_TOTAL_ALIGNMENTS(sam_buff);
