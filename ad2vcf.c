@@ -72,7 +72,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     ad2vcf_stats_t  stats;
     char            cmd[CMD_MAX + 1],
 		    vcf_out_filename[PATH_MAX + 1],
-		    previous_vcf_chromosome[BL_CHROMOSOME_MAX_CHARS + 1] = "",
+		    previous_vcf_chromosome[BL_CHROM_MAX_CHARS + 1] = "",
 		    *ext,
 		    *end;
     const char      *vcf_filename = argv[1];
@@ -140,12 +140,12 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 #ifdef DEBUG
 	fprintf(stderr, "\n=========================\n");
 	fprintf(stderr, "New VCF call: %s, %zu\n",
-		BL_VCF_CHROMOSOME(&vcf_call), BL_VCF_POS(&vcf_call));
+		BL_VCF_CHROM(&vcf_call), BL_VCF_POS(&vcf_call));
 	fprintf(stderr, "=========================\n");
 #endif
 
 	/* Make sure VCF calls are sorted */
-	if ( strcmp(BL_VCF_CHROMOSOME(&vcf_call), previous_vcf_chromosome) == 0 )
+	if ( strcmp(BL_VCF_CHROM(&vcf_call), previous_vcf_chromosome) == 0 )
 	{
 	    if ( BL_VCF_POS(&vcf_call) < previous_vcf_pos )
 		 bl_vcf_call_out_of_order(&vcf_call, previous_vcf_chromosome,
@@ -153,7 +153,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    else
 		previous_vcf_pos = BL_VCF_POS(&vcf_call);
 	}
-	else if ( bl_chromosome_name_cmp(BL_VCF_CHROMOSOME(&vcf_call),
+	else if ( bl_chrom_name_cmp(BL_VCF_CHROM(&vcf_call),
 				      previous_vcf_chromosome) < 0 )
 	{
 	    bl_vcf_call_out_of_order(&vcf_call, previous_vcf_chromosome,
@@ -162,10 +162,10 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	else
 	{
 	    printf("Starting VCF chromosome %s.\n",
-		    BL_VCF_CHROMOSOME(&vcf_call));
+		    BL_VCF_CHROM(&vcf_call));
 	    fflush(stdout);
-	    strlcpy(previous_vcf_chromosome, BL_VCF_CHROMOSOME(&vcf_call),
-		    BL_CHROMOSOME_MAX_CHARS);
+	    strlcpy(previous_vcf_chromosome, BL_VCF_CHROM(&vcf_call),
+		    BL_CHROM_MAX_CHARS);
 	    previous_vcf_pos = BL_VCF_POS(&vcf_call);
 	}
 	
@@ -198,7 +198,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	//fprintf(stderr, "%s\n", BL_VCF_PHREDS(&vcf_call));
 	fprintf(vcf_out_stream,
 		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u,%u:%u\n",
-		BL_VCF_CHROMOSOME(&vcf_call), BL_VCF_POS(&vcf_call),
+		BL_VCF_CHROM(&vcf_call), BL_VCF_POS(&vcf_call),
 		BL_VCF_REF(&vcf_call),
 		BL_VCF_ALT(&vcf_call),
 		BL_VCF_FORMAT(&vcf_call),
@@ -321,7 +321,7 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
 	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu upstream of variant %s,%zu\n",
 		c, BL_SAM_RNAME(BL_SAM_BUFF_ALIGNMENTS(sam_buff,c)),
 		BL_SAM_POS(BL_SAM_BUFF_ALIGNMENTS(sam_buff,c)),
-		BL_VCF_CHROMOSOME(vcf_call), BL_VCF_POS(vcf_call));
+		BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
     }
     
@@ -358,7 +358,7 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
 		else
 		    fprintf(stderr, "skip(): Skipping new alignment %s,%zu upstream of variant %s,%zu\n",
 			    BL_SAM_RNAME(&sam_alignment), BL_SAM_POS(&sam_alignment),
-			    BL_VCF_CHROMOSOME(vcf_call), BL_VCF_POS(vcf_call));
+			    BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
 	    }
 	}
@@ -409,7 +409,7 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 		"containing call %s,%zu\n",
 		c, BL_SAM_RNAME(BL_SAM_BUFF_ALIGNMENTS(sam_buff,c)),
 		BL_SAM_POS(BL_SAM_BUFF_ALIGNMENTS(sam_buff,c)),
-		BL_VCF_CHROMOSOME(vcf_call), BL_VCF_POS(vcf_call));
+		BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
 	update_allele_count(vcf_call, BL_SAM_BUFF_ALIGNMENTS(sam_buff,c),
 	    vcf_out_stream, stats);
@@ -442,7 +442,7 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 #ifdef DEBUG
 		    fprintf(stderr, "depth(): Counting new alignment %s,%zu containing call %s,%zu\n",
 			    BL_SAM_RNAME(&sam_alignment), BL_SAM_POS(&sam_alignment),
-			    BL_VCF_CHROMOSOME(vcf_call), BL_VCF_POS(vcf_call));
+			    BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
 		    update_allele_count(vcf_call, &sam_alignment, vcf_out_stream, stats);
 		}
@@ -450,7 +450,7 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 		{
 #ifdef DEBUG
 		    fprintf(stderr, "depth(): Does not contain call %s,%zu\n",
-			    BL_VCF_CHROMOSOME(vcf_call), BL_VCF_POS(vcf_call));
+			    BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
 		    break;
 		}
@@ -512,7 +512,7 @@ void    update_allele_count(bl_vcf_t *vcf_call, bl_sam_t *sam_alignment,
 	    atype, allele,
 	    BL_VCF_POS(vcf_call) - BL_SAM_POS(sam_alignment) + 1,
 	    BL_SAM_RNAME(sam_alignment), BL_SAM_POS(sam_alignment),
-	    BL_VCF_CHROMOSOME(vcf_call), BL_VCF_POS(vcf_call));
+	    BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
     fputs("===\n", stderr);
     putc(allele, vcf_out_stream);
 #endif
