@@ -62,7 +62,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     bl_sam_buff_t   sam_buff;
     FILE            *vcf_in_stream,
 		    *vcf_out_stream;
-    bl_vcf_t        vcf_call = BL_VCF_CALL_INIT;
+    bl_vcf_t        vcf_call;   // Use bl_vcf_init() function to initizalize
     bool            xz = false,
 		    more_alignments;
     size_t          previous_vcf_pos = 0,
