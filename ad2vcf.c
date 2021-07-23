@@ -314,13 +314,14 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
      *  since the calls must be sorted in ascending order.
      */
     for (c = 0; (c < BL_SAM_BUFF_BUFFERED_COUNT(sam_buff)) &&
-	 bl_vcf_call_downstream_of_alignment(vcf_call, BL_SAM_BUFF_ALIGNMENTS(sam_buff, c));
+	 bl_vcf_call_downstream_of_alignment(vcf_call,
+		BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff, c));
 	 ++c)
     {
 #ifdef DEBUG
 	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu upstream of variant %s,%zu\n",
-		c, BL_SAM_RNAME(BL_SAM_BUFF_ALIGNMENTS(sam_buff,c)),
-		BL_SAM_POS(BL_SAM_BUFF_ALIGNMENTS(sam_buff,c)),
+		c, BL_SAM_RNAME(BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c)),
+		BL_SAM_POS(BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c)),
 		BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
     }
@@ -401,17 +402,17 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
     /* Check and discard already buffered alignments */
     for (c = 0; (c < BL_SAM_BUFF_BUFFERED_COUNT(sam_buff)) &&
 		(overlapping = bl_vcf_call_in_alignment(vcf_call,
-		    BL_SAM_BUFF_ALIGNMENTS(sam_buff,c)));
+		    BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c)));
 		++c)
     {
 #ifdef DEBUG
 	fprintf(stderr, "depth(): Counting buffered alignment #%zu %s,%zu "
 		"containing call %s,%zu\n",
-		c, BL_SAM_RNAME(BL_SAM_BUFF_ALIGNMENTS(sam_buff,c)),
-		BL_SAM_POS(BL_SAM_BUFF_ALIGNMENTS(sam_buff,c)),
+		c, BL_SAM_RNAME(BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c)),
+		BL_SAM_POS(BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c)),
 		BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
-	update_allele_count(vcf_call, BL_SAM_BUFF_ALIGNMENTS(sam_buff,c),
+	update_allele_count(vcf_call, BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c),
 	    vcf_out_stream, stats);
     }
     
