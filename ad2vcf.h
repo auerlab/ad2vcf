@@ -38,6 +38,6 @@ typedef struct
 	    // Median would require an array of all VCF calls and we can
 	    // always get it later from the -ad output
 	    mean_depth;
-}   ad2vcf_stats_t;
+}   vcf_stats_t;
 
 #include "ad2vcf-protos.h"

@@ -69,7 +69,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    total_alleles,
 		    depth,
 		    depth_sum = 0;
-    ad2vcf_stats_t  stats;
+    vcf_stats_t     vcf_stats;
     char            cmd[CMD_MAX + 1],
 		    vcf_out_filename[PATH_MAX + 1],
 		    previous_vcf_chromosome[BL_CHROM_MAX_CHARS + 1] = "",
@@ -102,7 +102,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     }
     
     bl_sam_buff_init(&sam_buff, mapq_min);
-    ad2vcf_stats_init(&stats);
+    vcf_stats_init(&vcf_stats);
     
     printf("\nProcessing \"%s\", MAPQ min = %u:\n\n", vcf_filename, mapq_min);
     
@@ -135,7 +135,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     
     while ( bl_vcf_read_ss_call(vcf_in_stream, &vcf_call, BL_VCF_FIELD_ALL) == BL_READ_OK )
     {
-	++stats.total_vcf_calls;
+	++vcf_stats.total_vcf_calls;
 	
 #ifdef DEBUG
 	fprintf(stderr, "\n=========================\n");
@@ -172,18 +172,18 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	/* Skip SAM alignments that don't include this position */
 	more_alignments = skip_upstream_alignments(&vcf_call, sam_stream,
 					       &sam_buff, vcf_out_stream,
-					       &stats);
+					       &vcf_stats);
 	
 	/* Scan SAM alignments that include this position and count alleles */
 	if ( more_alignments )
-	    allelic_depth(&vcf_call, sam_stream, &sam_buff, vcf_out_stream, &stats);
+	    allelic_depth(&vcf_call, sam_stream, &sam_buff, vcf_out_stream, &vcf_stats);
 	
 	depth = BL_VCF_REF_COUNT(&vcf_call) + BL_VCF_ALT_COUNT(&vcf_call);
 	depth_sum += depth;
-	if ( depth < stats.min_depth )
-	    stats.min_depth = depth;
-	if ( depth > stats.max_depth )
-	    stats.max_depth = depth;
+	if ( depth < vcf_stats.min_depth )
+	    vcf_stats.min_depth = depth;
+	if ( depth > vcf_stats.max_depth )
+	    vcf_stats.max_depth = depth;
 	
 	/* Output record with allelic depth */
 #ifdef DEBUG
@@ -229,7 +229,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 #endif
 
     printf("\nFinal statistics:\n\n");
-    printf("%zu VCF calls processed\n", stats.total_vcf_calls);
+    printf("%zu VCF calls processed\n", vcf_stats.total_vcf_calls);
     printf("%zu SAM alignments processed\n",
 	    BL_SAM_BUFF_TOTAL_ALIGNMENTS(&sam_buff));
     printf("Max buffered alignments: %zu\n",
@@ -261,21 +261,21 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    BL_SAM_BUFF_MAPQ_LOW(&sam_buff), BL_SAM_BUFF_MAPQ_HIGH(&sam_buff),
 	    (double)BL_SAM_BUFF_MAPQ_SUM(&sam_buff) / BL_SAM_BUFF_READS_USED(&sam_buff));
     
-    total_alleles = stats.total_ref_alleles + stats.total_alt_alleles +
-		    stats.total_other_alleles;
+    total_alleles = vcf_stats.total_ref_alleles + vcf_stats.total_alt_alleles +
+		    vcf_stats.total_other_alleles;
     printf("%zu total REF alleles (%zu%%)\n",
-	    stats.total_ref_alleles,
-	    stats.total_ref_alleles * 100 / total_alleles);
+	    vcf_stats.total_ref_alleles,
+	    vcf_stats.total_ref_alleles * 100 / total_alleles);
     printf("%zu total ALT alleles (%zu%%)\n",
-	    stats.total_alt_alleles,
-	    stats.total_alt_alleles * 100 / total_alleles);
+	    vcf_stats.total_alt_alleles,
+	    vcf_stats.total_alt_alleles * 100 / total_alleles);
     printf("%zu total OTHER alleles (%zu%%)\n",
-	    stats.total_other_alleles,
-	    stats.total_other_alleles * 100 / total_alleles);
-    printf("Min depth = %zu\n", stats.min_depth);
-    printf("Max depth = %zu\n", stats.max_depth);
+	    vcf_stats.total_other_alleles,
+	    vcf_stats.total_other_alleles * 100 / total_alleles);
+    printf("Min depth = %zu\n", vcf_stats.min_depth);
+    printf("Max depth = %zu\n", vcf_stats.max_depth);
     printf("Mean depth = %f\n",
-	    (double)depth_sum / stats.total_vcf_calls);
+	    (double)depth_sum / vcf_stats.total_vcf_calls);
 
     if ( xz )
 	pclose(vcf_in_stream);
@@ -297,7 +297,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 
 int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
 				 bl_sam_buff_t *sam_buff, FILE *vcf_out_stream,
-				 ad2vcf_stats_t *stats)
+				 vcf_stats_t *vcf_stats)
 
 {
     size_t          c;
@@ -388,7 +388,7 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
 
 int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 		      bl_sam_buff_t *sam_buff, FILE *vcf_out_stream,
-		      ad2vcf_stats_t *stats)
+		      vcf_stats_t *vcf_stats)
 
 {
     size_t          c;
@@ -412,8 +412,8 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 		BL_SAM_POS(BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c)),
 		BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
-	update_allele_count(vcf_call, BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c),
-	    vcf_out_stream, stats);
+	vcf_stats_update_allele_count(vcf_stats, vcf_call,
+		BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c), vcf_out_stream);
     }
     
     if ( (c == 0) || overlapping )
@@ -445,7 +445,8 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 			    BL_SAM_RNAME(&sam_alignment), BL_SAM_POS(&sam_alignment),
 			    BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
-		    update_allele_count(vcf_call, &sam_alignment, vcf_out_stream, stats);
+		    vcf_stats_update_allele_count(vcf_stats, vcf_call,
+			    &sam_alignment, vcf_out_stream);
 		}
 		else
 		{
@@ -472,8 +473,9 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
  *  2020-05-26  Jason Bacon Begin
  ***************************************************************************/
 
-void    update_allele_count(bl_vcf_t *vcf_call, bl_sam_t *sam_alignment,
-			   FILE *vcf_out_stream, ad2vcf_stats_t *stats)
+void    vcf_stats_update_allele_count(vcf_stats_t *vcf_stats, 
+		bl_vcf_t *vcf_call, bl_sam_t *sam_alignment,
+		FILE *vcf_out_stream)
 
 {
     unsigned char   allele;
@@ -491,7 +493,7 @@ void    update_allele_count(bl_vcf_t *vcf_call, bl_sam_t *sam_alignment,
 	phred = BL_SAM_QUAL(sam_alignment)[position_in_sequence];
 	if ( phred < PHRED_BASE + PHRED_MIN )
 	{
-	    ++stats->discarded_bases;
+	    ++vcf_stats->discarded_bases;
 #ifdef DEBUG
 	    fprintf(stderr,
 		    "Discarding low-quality base: %s,%zu,%zu = %u ('%c')\n",
@@ -520,36 +522,36 @@ void    update_allele_count(bl_vcf_t *vcf_call, bl_sam_t *sam_alignment,
     if ( allele == *BL_VCF_REF(vcf_call) )
     {
 	++BL_VCF_REF_COUNT(vcf_call);
-	++stats->total_ref_alleles;
+	++vcf_stats->total_ref_alleles;
     }
     else if ( allele == *BL_VCF_ALT(vcf_call) )
     {
 	++BL_VCF_ALT_COUNT(vcf_call);
-	++stats->total_alt_alleles;
+	++vcf_stats->total_alt_alleles;
     }
     else
     {
 	++BL_VCF_OTHER_COUNT(vcf_call);
-	++stats->total_other_alleles;
+	++vcf_stats->total_other_alleles;
     }
 }
 
-
+/*
 int     uchar_cmp(unsigned char *c1, unsigned char *c2)
 
 {
     return *c1 - *c2;
 }
+*/
 
-
-void    ad2vcf_stats_init(ad2vcf_stats_t *stats)
+void    vcf_stats_init(vcf_stats_t *vcf_stats)
 
 {
-    stats->total_vcf_calls = 0;
-    stats->total_ref_alleles = 0;
-    stats->total_alt_alleles = 0;
-    stats->total_other_alleles = 0;
-    stats->min_depth = SIZE_MAX;
-    stats->max_depth = 0;
-    stats->mean_depth = 0;
+    vcf_stats->total_vcf_calls = 0;
+    vcf_stats->total_ref_alleles = 0;
+    vcf_stats->total_alt_alleles = 0;
+    vcf_stats->total_other_alleles = 0;
+    vcf_stats->min_depth = SIZE_MAX;
+    vcf_stats->max_depth = 0;
+    vcf_stats->mean_depth = 0;
 }
