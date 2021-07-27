@@ -102,7 +102,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     }
     
     bl_sam_buff_init(&sam_buff, mapq_min);
-    vcf_stats_init(&vcf_stats);
+    vcf_stats_init(&vcf_stats, VCF_STATS_MASK_ALLELE);
     
     printf("\nProcessing \"%s\", MAPQ min = %u:\n\n", vcf_filename, mapq_min);
     
@@ -413,7 +413,7 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 		BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
 	vcf_stats_update_allele_count(vcf_stats, vcf_call,
-		BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c), vcf_out_stream);
+		BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c));
     }
     
     if ( (c == 0) || overlapping )
@@ -446,7 +446,7 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 			    BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
 		    vcf_stats_update_allele_count(vcf_stats, vcf_call,
-			    &sam_alignment, vcf_out_stream);
+			    &sam_alignment);
 		}
 		else
 		{
@@ -474,11 +474,11 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
  ***************************************************************************/
 
 void    vcf_stats_update_allele_count(vcf_stats_t *vcf_stats, 
-		bl_vcf_t *vcf_call, bl_sam_t *sam_alignment,
-		FILE *vcf_out_stream)
+		bl_vcf_t *vcf_call, bl_sam_t *sam_alignment)
 
 {
     unsigned char   allele;
+    unsigned        phred;
     size_t          position_in_sequence;
     
     position_in_sequence = BL_VCF_POS(vcf_call) - BL_SAM_POS(sam_alignment);
@@ -487,24 +487,25 @@ void    vcf_stats_update_allele_count(vcf_stats_t *vcf_stats,
     /*fprintf(stderr, "%zu %zu %zu\n", position_in_sequence,
 	    BL_SAM_QUAL_LEN(sam_alignment), BL_SAM_SEQ_LEN(sam_alignment));*/
     
-#if 0
-    if ( BL_SAM_QUAL_LEN(sam_alignment) == BL_SAM_SEQ_LEN(sam_alignment) )
+    if ( vcf_stats->mask & VCF_STATS_MASK_CHECK_PHREDS )
     {
-	phred = BL_SAM_QUAL(sam_alignment)[position_in_sequence];
-	if ( phred < PHRED_BASE + PHRED_MIN )
+	if ( BL_SAM_QUAL_LEN(sam_alignment) == BL_SAM_SEQ_LEN(sam_alignment) )
 	{
-	    ++vcf_stats->discarded_bases;
+	    phred = BL_SAM_QUAL(sam_alignment)[position_in_sequence];
+	    if ( phred < PHRED_BASE + PHRED_MIN )
+	    {
+		++vcf_stats->discarded_bases;
 #ifdef DEBUG
-	    fprintf(stderr,
-		    "Discarding low-quality base: %s,%zu,%zu = %u ('%c')\n",
-		    BL_SAM_RNAME(sam_alignment), BL_SAM_POS(sam_alignment),
-		    position_in_sequence, phred - PHRED_BASE, phred);
+		fprintf(stderr,
+			"Discarding low-quality base: %s,%zu,%zu = %u ('%c')\n",
+			BL_SAM_RNAME(sam_alignment), BL_SAM_POS(sam_alignment),
+			position_in_sequence, phred - PHRED_BASE, phred);
 #endif
-	    return;
+		return;
+	    }
+	    // vcf_phred_add(vcf_call, phred);
 	}
-	vcf_phred_add(vcf_call, phred);
     }
-#endif
     
 #ifdef DEBUG
     char            *atype;
@@ -517,7 +518,6 @@ void    vcf_stats_update_allele_count(vcf_stats_t *vcf_stats,
 	    BL_SAM_RNAME(sam_alignment), BL_SAM_POS(sam_alignment),
 	    BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
     fputs("===\n", stderr);
-    putc(allele, vcf_out_stream);
 #endif
     if ( allele == *BL_VCF_REF(vcf_call) )
     {
@@ -544,7 +544,7 @@ int     uchar_cmp(unsigned char *c1, unsigned char *c2)
 }
 */
 
-void    vcf_stats_init(vcf_stats_t *vcf_stats)
+void    vcf_stats_init(vcf_stats_t *vcf_stats, unsigned mask)
 
 {
     vcf_stats->total_vcf_calls = 0;

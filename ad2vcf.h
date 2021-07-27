@@ -29,15 +29,20 @@
 
 typedef struct
 {
-    size_t  total_vcf_calls,
-	    total_ref_alleles,
-	    total_alt_alleles,
-	    total_other_alleles,
-	    min_depth,
-	    max_depth,
-	    // Median would require an array of all VCF calls and we can
-	    // always get it later from the -ad output
-	    mean_depth;
+    size_t      total_vcf_calls,
+		total_ref_alleles,
+		total_alt_alleles,
+		total_other_alleles,
+		min_depth,
+		max_depth,
+		// Median would require an array of all VCF calls and we can
+		// always get it later from the -ad output
+		mean_depth,
+		discarded_bases;
+    unsigned    mask;
 }   vcf_stats_t;
+
+#define VCF_STATS_MASK_ALLELE       0x01
+#define VCF_STATS_MASK_CHECK_PHREDS 0X02
 
 #include "ad2vcf-protos.h"
