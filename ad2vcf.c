@@ -22,6 +22,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <sys/param.h>  // MIN()
+#include <xtend/string.h>
 #include <xtend/dsv.h>
 #include <biolibc/vcf.h>
 #include <biolibc/sam-buff.h>
