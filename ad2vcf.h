@@ -3,7 +3,7 @@
 #include <stdint.h>
 #endif
 
-#define CMD_MAX     128
+#define CMD_MAX     PATH_MAX+9  // snprintf(vcf_out_filename...)
 
 // FIXME: These should be command line arguments
 #define PHRED_MIN   20
