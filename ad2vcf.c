@@ -198,7 +198,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	
 	//fprintf(stderr, "%s\n", BL_VCF_PHREDS(&vcf_call));
 	fprintf(vcf_out_stream,
-		"%s\t%zu\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u,%u:%u\n",
+		"%s\t%" PRIu64 "\t.\t%s\t%s\t.\t.\t.\t%s:AD:DP\t%s:%u,%u,%u:%u\n",
 		BL_VCF_CHROM(&vcf_call), BL_VCF_POS(&vcf_call),
 		BL_VCF_REF(&vcf_call),
 		BL_VCF_ALT(&vcf_call),
@@ -231,15 +231,15 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 
     printf("\nFinal statistics:\n\n");
     printf("%zu VCF calls processed\n", vcf_stats.total_vcf_calls);
-    printf("%zu SAM alignments processed\n",
+    printf("%" PRIu64 " SAM alignments processed\n",
 	    BL_SAM_BUFF_TOTAL_ALIGNMENTS(&sam_buff));
     printf("Max buffered alignments: %zu\n",
 	    BL_SAM_BUFF_MAX_COUNT(&sam_buff));
-    printf("%zu low MAPQ alignments discarded (%zu%%)\n",
+    printf("%" PRIu64 " low MAPQ alignments discarded (%" PRIu64 "%%)\n",
 	    BL_SAM_BUFF_DISCARDED_ALIGNMENTS(&sam_buff),
 	    BL_SAM_BUFF_DISCARDED_ALIGNMENTS(&sam_buff) * 100 /
 		BL_SAM_BUFF_TOTAL_ALIGNMENTS(&sam_buff));
-    printf("%zu unmapped alignments discarded (%zu%%)\n",
+    printf("%" PRIu64 " unmapped alignments discarded (%" PRIu64 "%%)\n",
 	    BL_SAM_BUFF_UNMAPPED_ALIGNMENTS(&sam_buff),
 	    BL_SAM_BUFF_UNMAPPED_ALIGNMENTS(&sam_buff) * 100 /
 		BL_SAM_BUFF_TOTAL_ALIGNMENTS(&sam_buff));
@@ -253,12 +253,12 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		BL_SAM_BUFF_TRAILING_ALIGNMENTS(&sam_buff));
 #endif
     if ( BL_SAM_BUFF_DISCARDED_ALIGNMENTS(&sam_buff) != 0 )
-	printf("MAPQ min discarded = %zu  max discarded = %zu  mean = %f\n",
+	printf("MAPQ min discarded = %" PRIu64 "  max discarded = %" PRIu64 "  mean = %f\n",
 		BL_SAM_BUFF_MIN_DISCARDED_SCORE(&sam_buff),
 		BL_SAM_BUFF_MAX_DISCARDED_SCORE(&sam_buff),
 		(double)BL_SAM_BUFF_DISCARDED_SCORE_SUM(&sam_buff) /
 		    BL_SAM_BUFF_DISCARDED_ALIGNMENTS(&sam_buff));
-    printf("MAPQ min used = %zu  max used = %zu  mean = %f\n",
+    printf("MAPQ min used = %" PRIu64 "  max used = %" PRIu64 "  mean = %f\n",
 	    BL_SAM_BUFF_MAPQ_LOW(&sam_buff), BL_SAM_BUFF_MAPQ_HIGH(&sam_buff),
 	    (double)BL_SAM_BUFF_MAPQ_SUM(&sam_buff) / BL_SAM_BUFF_READS_USED(&sam_buff));
     
