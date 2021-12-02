@@ -134,6 +134,9 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     bl_vcf_init(&vcf_call, BL_VCF_INFO_MAX_CHARS, BL_VCF_FORMAT_MAX_CHARS,
 		  BL_VCF_SAMPLE_MAX_CHARS);
     
+    bl_vcf_skip_header(vcf_in_stream);
+    // bl_vcf_skip_header stops after #CHROM
+    dsv_skip_rest_of_line(vcf_in_stream);
     while ( bl_vcf_read_ss_call(vcf_in_stream, &vcf_call, BL_VCF_FIELD_ALL) == BL_READ_OK )
     {
 	++vcf_stats.total_vcf_calls;
