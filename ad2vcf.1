@@ -11,7 +11,7 @@ AD2VCF \- Extract allelic depth from a SAM stream and add to VCF files
 .nf 
 .na 
 ad2vcf file.vcf minimum-MAPQ < file.sam
-samtools view file.{bam|cram} | ad2vcf file.vcf minimum-MAPQ
+samtools view [flags] file.{bam|cram} | ad2vcf file.vcf minimum-MAPQ
 .ad
 .fi
 
@@ -33,7 +33,7 @@ scans a single-sample VCF file one call at a time and simultaneously scans
 the SAM stream for the same sample, extracting the alleles from the read
 sequence for each call position in the VCF.
 
-Output is compressed uzing xz and saved in file-ad.vcf.xz.
+Output is compressed using xz and saved in file-ad.vcf.xz.
 
 Both files must be sorted by chromosome and position.  Otherwise, it would
 not be possible to perform this task in a single pass.  Since a single read
@@ -48,6 +48,12 @@ Processing a single-sample human VCF and CRAM file from SRA takes about
 bottleneck due to it's complex compression.  For this reason, ad2vcf was
 intentionally designed as a filter, so that it can utilize a second core
 while samtools view saturates the first core decoding the CRAM file.
+
+If is advisable to filter out questionable alignments before feeding data
+to ad2vcf.  For example, samtools can remove unmapped, secondary, qcfail,
+dup, and supplementary alignments using --excl-flags 0xF0C.  This will
+greatly reduce the number of buffered alignments in rare cases, preventing
+runaway memory use to buffer alignments that are probably not useful.
 
 .SH "SEE ALSO"
 vcf-split, haplohseq
