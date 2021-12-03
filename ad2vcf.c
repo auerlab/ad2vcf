@@ -109,7 +109,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	exit(EX_USAGE);
     }
     
-    bl_sam_buff_init(&sam_buff, mapq_min);
+    bl_sam_buff_init(&sam_buff, mapq_min, MAX_BUFFERED_ALIGNMENTS);
     vcf_stats_init(&vcf_stats, VCF_STATS_MASK_ALLELE);
     
     printf("\nProcessing \"%s\", MAPQ min = %u:\n\n", vcf_filename, mapq_min);
@@ -380,7 +380,8 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
 		    BL_SAM_RNAME(&sam_alignment), BL_SAM_POS(&sam_alignment),
 		    BL_SAM_SEQ_LEN(&sam_alignment));
 #endif
-	bl_sam_buff_add_alignment(sam_buff, &sam_alignment);
+	if ( bl_sam_buff_add_alignment(sam_buff, &sam_alignment) != BL_SAM_BUFF_OK )
+	    exit(EX_DATAERR);
     }
     return ma;
 }
@@ -447,7 +448,8 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 			BL_SAM_RNAME(&sam_alignment),
 			BL_SAM_POS(&sam_alignment), BL_SAM_SEQ_LEN(&sam_alignment));
 #endif
-		bl_sam_buff_add_alignment(sam_buff, &sam_alignment);
+		if ( bl_sam_buff_add_alignment(sam_buff, &sam_alignment) != BL_SAM_BUFF_OK )
+		    exit(EX_DATAERR);
 		
 		if ( bl_vcf_call_in_alignment(vcf_call, &sam_alignment) )
 		{

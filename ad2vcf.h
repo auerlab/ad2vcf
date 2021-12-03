@@ -18,9 +18,13 @@
 
 // Yes, we actually saw a few INFO fields over 512k in some dbGap BCFs
 // Match this with vcf-split
-#define BL_VCF_INFO_MAX_CHARS          1048576
-#define BL_VCF_FORMAT_MAX_CHARS        4096
-#define BL_VCF_SAMPLE_MAX_CHARS        2048
+#define BL_VCF_INFO_MAX_CHARS   1048576
+#define BL_VCF_FORMAT_MAX_CHARS 4096
+#define BL_VCF_SAMPLE_MAX_CHARS 2048
+
+// Usually no more than a few thousand overlapping alignments,
+// but spikes in rare cases.  Set a limit to cap memory use.
+#define MAX_BUFFERED_ALIGNMENTS 1048576
 
 /*
  *  FIXME: This is a foster home for a random collection of unrelated stats.
