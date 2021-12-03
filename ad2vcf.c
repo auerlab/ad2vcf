@@ -32,6 +32,12 @@
 int     main(int argc, const char *argv[])
 
 {
+    if ( (argc == 2) && (strcmp(argv[1],"--version")) == 0 )
+    {
+	printf("%s\n", VERSION);
+	return EX_OK;
+    }
+    
     if ( argc != 3 )
 	usage(argv);
     
@@ -42,6 +48,7 @@ int     main(int argc, const char *argv[])
 void    usage(const char *argv[])
 
 {
+    fprintf(stderr, "Usage: %s --version\n", argv[0]);
     fprintf(stderr, "Usage: %s single-sample.vcf[.xz] minimum-MAPQ < file.sam\n", argv[0]);
     exit(EX_USAGE);
 }
