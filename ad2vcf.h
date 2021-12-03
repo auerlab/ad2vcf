@@ -22,9 +22,14 @@
 #define BL_VCF_FORMAT_MAX_CHARS 4096
 #define BL_VCF_SAMPLE_MAX_CHARS 2048
 
-// Usually no more than a few thousand overlapping alignments,
-// but spikes in rare cases.  Set a limit to cap memory use.
-#define MAX_BUFFERED_ALIGNMENTS 1048576
+/*
+ *  Usually no more than a few thousand overlapping alignments,
+ *  but spikes in rare cases.  Set a limit to cap memory use.
+ *  This proved to be enough after filtering out questionable alignments
+ *  with samtools view --excl-flags 0xF0C
+ */
+
+#define MAX_BUFFERED_ALIGNMENTS 32768
 
 /*
  *  FIXME: This is a foster home for a random collection of unrelated stats.
