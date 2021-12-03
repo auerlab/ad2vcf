@@ -25,11 +25,11 @@
 /*
  *  Usually no more than a few thousand overlapping alignments,
  *  but spikes in rare cases.  Set a limit to cap memory use.
- *  This proved to be enough after filtering out questionable alignments
- *  with samtools view --excl-flags 0xF0C
+ *  This proved to be enough for our SRA WGS data after filtering out
+ *  questionable alignments with samtools view --excl-flags 0xF0C
  */
 
-#define MAX_BUFFERED_ALIGNMENTS 32768
+#define MAX_BUFFERED_ALIGNMENTS 131072
 
 /*
  *  FIXME: This is a foster home for a random collection of unrelated stats.
