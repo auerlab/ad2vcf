@@ -34,7 +34,7 @@ int     main(int argc, const char *argv[])
 {
     if ( (argc == 2) && (strcmp(argv[1],"--version")) == 0 )
     {
-	printf("%s\n", VERSION);
+	printf("ad2vcf %s\n", VERSION);
 	return EX_OK;
     }
     
