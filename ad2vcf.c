@@ -69,7 +69,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 {
     bl_sam_buff_t   sam_buff;
     FILE            *vcf_in_stream,
-		    *vcf_out_stream;
+		    *vcf_out_stream,
+		    *vcf_meta_stream;
     bl_vcf_t        vcf_call;   // Use bl_vcf_init() function to initizalize
     bool            xz = false,
 		    more_alignments;
@@ -85,6 +86,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    *end;
     const char      *vcf_filename = argv[1];
     unsigned int    mapq_min;
+    int             ch;
 
     xz = ((ext = strstr(vcf_filename,".xz")) != NULL) && (ext[3] == '\0');
     if ( xz )
@@ -138,12 +140,27 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	exit(EX_CANTCREAT);
     }
 
-    bl_vcf_init(&vcf_call, BL_VCF_INFO_MAX_CHARS, BL_VCF_FORMAT_MAX_CHARS,
-		  BL_VCF_SAMPLE_MAX_CHARS);
+    bl_vcf_init(&vcf_call, BL_VCF_INFO_MAX_CHARS,
+	    BL_VCF_FORMAT_MAX_CHARS, BL_VCF_SAMPLE_MAX_CHARS);
     
-    bl_vcf_skip_header(vcf_in_stream);
-    // bl_vcf_skip_header stops after #CHROM
-    dsv_skip_rest_of_line(vcf_in_stream);
+    if ( bl_vcf_skip_meta_data(vcf_in_stream, &vcf_meta_stream) != BL_READ_OK )
+    {
+	fprintf(stderr, "Error reading VCF meta-data.\n");
+	return EX_DATAERR;
+    }
+    fprintf(stderr, "back from skip_meta\n");
+    
+    // Transfer meta-data to output
+    while ( (ch = getc(vcf_meta_stream)) != EOF )
+	putc(ch, vcf_out_stream);
+    
+    // Transfer header line to output
+    do
+    {
+	ch = getc(vcf_in_stream);
+	putc(ch, vcf_out_stream);
+    }   while ( ch != '\n' );
+
     while ( bl_vcf_read_ss_call(vcf_in_stream, &vcf_call, BL_VCF_FIELD_ALL) == BL_READ_OK )
     {
 	++vcf_stats.total_vcf_calls;

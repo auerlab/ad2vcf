@@ -1,3 +1,5 @@
+##fileformat=VCFv4.2                                                            
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE
 chr1	13	.	A	G	.	.	.	GT:AD:DP	0|1:1,1,1:2
 chr1	15	.	A	C	.	.	.	GT:AD:DP	1|0:2,2,1:4
 chr1	164	.	A	C	.	.	.	GT:AD:DP	1|0:0,1,2:1
