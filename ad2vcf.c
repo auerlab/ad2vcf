@@ -161,7 +161,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	putc(ch, vcf_out_stream);
     }   while ( ch != '\n' );
 
-    while ( bl_vcf_read_ss_call(vcf_in_stream, &vcf_call, BL_VCF_FIELD_ALL) == BL_READ_OK )
+    while ( bl_vcf_read_ss_call(&vcf_call, vcf_in_stream,
+		BL_VCF_FIELD_ALL) == BL_READ_OK )
     {
 	++vcf_stats.total_vcf_calls;
 	
@@ -365,8 +366,8 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
      */
     if ( BL_SAM_BUFF_BUFFERED_COUNT(sam_buff) == 0 )
     {
-	while ( (ma = (bl_sam_read(sam_stream, &sam_alignment,
-					 REQUIRED_SAM_FIELDS) == BL_READ_OK)) )
+	while ( (ma = (bl_sam_read(&sam_alignment, sam_stream,
+			    REQUIRED_SAM_FIELDS) == BL_READ_OK)) )
 	{
 	    BL_SAM_BUFF_INC_TOTAL_ALIGNMENTS(sam_buff);
 	    /*
@@ -448,8 +449,8 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
     if ( (c == 0) || overlapping )
     {
 	/* Read and buffer more alignments from the stream */
-	while ( (ma = bl_sam_read(sam_stream, &sam_alignment,
-					 REQUIRED_SAM_FIELDS)) == BL_READ_OK )
+	while ( (ma = bl_sam_read(&sam_alignment, sam_stream,
+			    REQUIRED_SAM_FIELDS)) == BL_READ_OK )
 	{
 	    BL_SAM_BUFF_INC_TOTAL_ALIGNMENTS(sam_buff);
 	    /*
