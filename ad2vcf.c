@@ -243,7 +243,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 #ifdef DEBUG
     static bl_sam_t sam_alignment = BL_SAM_ALIGNMENT_INIT;
     if ( sam_alignment.seq == NULL )
-	bl_sam_init(&sam_alignment, BL_SAM_SEQ_MAX_CHARS, REQUIRED_SAM_FIELDS);
+	bl_sam_init(&sam_alignment);
 
     // Debug discarded count
     puts("Gathering stats on trailing alignments...");
@@ -332,10 +332,10 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
     size_t          c;
     bool            ma = true;
     // static so sam_alignment_read() won't keep reallocating seq
-    static bl_sam_t sam_alignment = BL_SAM_ALIGNMENT_INIT;
+    static bl_sam_t sam_alignment = BL_SAM_INIT;
 
     if ( sam_alignment.seq == NULL )
-	bl_sam_init(&sam_alignment, BL_SAM_SEQ_MAX_CHARS, REQUIRED_SAM_FIELDS);
+	bl_sam_init(&sam_alignment);
     
     /*
      *  Check and discard already buffered alignments upstream of the given
@@ -424,10 +424,10 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
     size_t          c;
     bool            ma = true, overlapping = true;
     // static so sam_alignment_read() won't keep reallocating seq
-    static bl_sam_t sam_alignment = BL_SAM_ALIGNMENT_INIT;
+    static bl_sam_t sam_alignment = BL_SAM_INIT;
 
     if ( sam_alignment.seq == NULL )
-	bl_sam_init(&sam_alignment, BL_SAM_SEQ_MAX_CHARS, REQUIRED_SAM_FIELDS);
+	bl_sam_init(&sam_alignment);
 
     /* Check and discard already buffered alignments */
     for (c = 0; (c < BL_SAM_BUFF_BUFFERED_COUNT(sam_buff)) &&
