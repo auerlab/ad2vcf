@@ -140,15 +140,13 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	exit(EX_CANTCREAT);
     }
 
-    bl_vcf_init(&vcf_call, BL_VCF_INFO_MAX_CHARS,
-	    BL_VCF_FORMAT_MAX_CHARS, BL_VCF_SAMPLE_MAX_CHARS);
+    bl_vcf_init(&vcf_call);
     
-    if ( bl_vcf_skip_meta_data(vcf_in_stream, &vcf_meta_stream) != BL_READ_OK )
+    if ( (vcf_meta_stream = bl_vcf_skip_meta_data(vcf_in_stream)) == NULL )
     {
 	fprintf(stderr, "Error reading VCF meta-data.\n");
 	return EX_DATAERR;
     }
-    fprintf(stderr, "back from skip_meta\n");
     
     // Transfer meta-data to output
     while ( (ch = getc(vcf_meta_stream)) != EOF )
@@ -241,7 +239,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     }
 
 #ifdef DEBUG
-    static bl_sam_t sam_alignment = BL_SAM_ALIGNMENT_INIT;
+    static bl_sam_t sam_alignment;
     if ( sam_alignment.seq == NULL )
 	bl_sam_init(&sam_alignment);
 
@@ -393,10 +391,11 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
 	    }
 	}
 #ifdef DEBUG
-	fprintf(stderr, "skip(): Buffering alignment #%zu %s,%zu,%zu\n",
+	fprintf(stderr, "skip(): Buffering alignment #%zu %s,%zu,%zu %s %s\n",
 		    BL_SAM_BUFF_BUFFERED_COUNT(sam_buff),
 		    BL_SAM_RNAME(&sam_alignment), BL_SAM_POS(&sam_alignment),
-		    BL_SAM_SEQ_LEN(&sam_alignment));
+		    BL_SAM_SEQ_LEN(&sam_alignment), BL_SAM_SEQ(&sam_alignment),
+		    BL_SAM_QUAL(&sam_alignment));
 #endif
 	if ( bl_sam_buff_add_alignment(sam_buff, &sam_alignment) != BL_SAM_BUFF_OK )
 	    exit(EX_DATAERR);
