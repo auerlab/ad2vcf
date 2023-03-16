@@ -164,7 +164,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	
 #ifdef DEBUG
 	fprintf(stderr, "\n=========================\n");
-	fprintf(stderr, "New VCF call: %s, %zu\n",
+	fprintf(stderr, "New VCF call: %s, %" PRId64 "\n",
 		BL_VCF_CHROM(&vcf_call), BL_VCF_POS(&vcf_call));
 	fprintf(stderr, "=========================\n");
 #endif
@@ -243,7 +243,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 
     // Debug discarded count
     puts("Gathering stats on trailing alignments...");
-    while ( bl_sam_read(sam_stream, &sam_alignment,
+    while ( bl_sam_read(&sam_alignment, sam_stream,
 			       REQUIRED_SAM_FIELDS) == BL_READ_OK )
     {
 	BL_SAM_BUFF_INC_TOTAL_ALIGNMENTS(&sam_buff);
@@ -268,9 +268,9 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 	    BL_SAM_BUFF_UNMAPPED_ALIGNMENTS(&sam_buff) * 100 /
 		BL_SAM_BUFF_TOTAL_ALIGNMENTS(&sam_buff));
 #ifdef DEBUG
-    printf("%zu SAM alignments beyond last call.\n",
+    printf("%" PRId64 " SAM alignments beyond last call.\n",
 	    BL_SAM_BUFF_TRAILING_ALIGNMENTS(&sam_buff));
-    printf("%zu trailing SAM alignments discarded (%zu%%)\n",
+    printf("%" PRId64 " trailing SAM alignments discarded (%lld%%)\n",
 	    BL_SAM_BUFF_DISCARDED_TRAILING(&sam_buff),
 	    BL_SAM_BUFF_TRAILING_ALIGNMENTS(&sam_buff) == 0 ? 0 :
 	    BL_SAM_BUFF_DISCARDED_TRAILING(&sam_buff) * 100 /
@@ -344,7 +344,7 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
 	 ++c)
     {
 #ifdef DEBUG
-	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%zu upstream of variant %s,%zu\n",
+	fprintf(stderr, "skip(): Unbuffering alignment #%zu %s,%" PRId64 " upstream of variant %s,%" PRId64 "\n",
 		c, BL_SAM_RNAME(BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c)),
 		BL_SAM_POS(BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c)),
 		BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
@@ -382,14 +382,14 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
 		    break;
 #ifdef DEBUG
 		else
-		    fprintf(stderr, "skip(): Skipping new alignment %s,%zu upstream of variant %s,%zu\n",
+		    fprintf(stderr, "skip(): Skipping new alignment %s,%" PRId64 " upstream of variant %s,%" PRId64 "\n",
 			    BL_SAM_RNAME(&sam_alignment), BL_SAM_POS(&sam_alignment),
 			    BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
 	    }
 	}
 #ifdef DEBUG
-	fprintf(stderr, "skip(): Buffering alignment #%zu %s,%zu,%zu %s %s\n",
+	fprintf(stderr, "skip(): Buffering alignment #%zu %s,%" PRId64 ",%zu %s %s\n",
 		    BL_SAM_BUFF_BUFFERED_COUNT(sam_buff),
 		    BL_SAM_RNAME(&sam_alignment), BL_SAM_POS(&sam_alignment),
 		    BL_SAM_SEQ_LEN(&sam_alignment), BL_SAM_SEQ(&sam_alignment),
@@ -433,8 +433,8 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 		++c)
     {
 #ifdef DEBUG
-	fprintf(stderr, "depth(): Counting buffered alignment #%zu %s,%zu "
-		"containing call %s,%zu\n",
+	fprintf(stderr, "depth(): Counting buffered alignment #%zu %s,%" PRId64
+		" containing call %s,%" PRId64 "\n",
 		c, BL_SAM_RNAME(BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c)),
 		BL_SAM_POS(BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c)),
 		BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
@@ -458,7 +458,7 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 	    if ( bl_sam_buff_alignment_ok(sam_buff, &sam_alignment) )
 	    {
 #ifdef DEBUG
-		fprintf(stderr, "depth(): Buffering new alignment #%zu %s,%zu,%zu\n",
+		fprintf(stderr, "depth(): Buffering new alignment #%zu %s,%" PRId64 ",%zu\n",
 			BL_SAM_BUFF_BUFFERED_COUNT(sam_buff),
 			BL_SAM_RNAME(&sam_alignment),
 			BL_SAM_POS(&sam_alignment), BL_SAM_SEQ_LEN(&sam_alignment));
@@ -469,7 +469,7 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 		if ( bl_vcf_call_in_alignment(vcf_call, &sam_alignment) )
 		{
 #ifdef DEBUG
-		    fprintf(stderr, "depth(): Counting new alignment %s,%zu containing call %s,%zu\n",
+		    fprintf(stderr, "depth(): Counting new alignment %s,%" PRId64 " containing call %s,%" PRId64 "\n",
 			    BL_SAM_RNAME(&sam_alignment), BL_SAM_POS(&sam_alignment),
 			    BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
@@ -479,7 +479,7 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 		else
 		{
 #ifdef DEBUG
-		    fprintf(stderr, "depth(): Does not contain call %s,%zu\n",
+		    fprintf(stderr, "depth(): Does not contain call %s,%" PRId64 "\n",
 			    BL_VCF_CHROM(vcf_call), BL_VCF_POS(vcf_call));
 #endif
 		    break;
@@ -525,7 +525,7 @@ void    vcf_stats_update_allele_count(vcf_stats_t *vcf_stats,
 		++vcf_stats->discarded_bases;
 #ifdef DEBUG
 		fprintf(stderr,
-			"Discarding low-quality base: %s,%zu,%zu = %u ('%c')\n",
+			"Discarding low-quality base: %s,%" PRId64 ",%zu = %u ('%c')\n",
 			BL_SAM_RNAME(sam_alignment), BL_SAM_POS(sam_alignment),
 			position_in_sequence, phred - PHRED_BASE, phred);
 #endif
@@ -540,7 +540,8 @@ void    vcf_stats_update_allele_count(vcf_stats_t *vcf_stats,
 
     atype = allele == *BL_VCF_REF(vcf_call) ? "ref" :
 	allele == *BL_VCF_ALT(vcf_call) ? "alt" : "other";
-    fprintf(stderr, "Found \"%s\" allele %c at pos %zu in seq %s,%zu for call %s,%zu\n",
+    fprintf(stderr, "Found \"%s\" allele %c at pos %"
+	    PRId64 " in seq %s,%" PRId64 " for call %s,%" PRId64 "\n",
 	    atype, allele,
 	    BL_VCF_POS(vcf_call) - BL_SAM_POS(sam_alignment) + 1,
 	    BL_SAM_RNAME(sam_alignment), BL_SAM_POS(sam_alignment),
