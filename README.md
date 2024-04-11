@@ -122,7 +122,7 @@ Then, assuming you selected current packages and the default prefix
 
 ```
 source ~/Pkgsrc/pkg/etc/pkgsrc.sh   # Or pkgsrc.csh for csh or tcsh
-cd ~/Pkgsrc/biology/ad2vcf
+cd ~/Pkgsrc/pkgsrc/biology/ad2vcf
 sbmake install clean clean-depends
 ```
 
