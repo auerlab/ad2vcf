@@ -22,10 +22,13 @@
 #include <ctype.h>
 #include <errno.h>
 #include <sys/param.h>          // MIN()
+
+#include <xtend/file.h>         // xt_fopen()
 #include <xtend/string.h>       // Linux strlcpy()
 #include <biolibc/vcf.h>
 #include <biolibc/sam-buff.h>
 #include <biolibc/biostring.h>  // chromosome_name_cmp()
+
 #include "ad2vcf.h"
 
 int     main(int argc, const char *argv[])
@@ -48,7 +51,7 @@ void    usage(const char *argv[])
 
 {
     fprintf(stderr, "Usage: %s --version\n", argv[0]);
-    fprintf(stderr, "Usage: %s single-sample.vcf[.xz] minimum-MAPQ < file.sam\n", argv[0]);
+    fprintf(stderr, "Usage: %s single-sample.vcf[.bz2|.gz|.lz4|.xz|.zstd] minimum-MAPQ < file.sam\n", argv[0]);
     exit(EX_USAGE);
 }
 
@@ -71,15 +74,13 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 		    *vcf_out_stream,
 		    *vcf_meta_stream;
     bl_vcf_t        vcf_call;   // Use bl_vcf_init() function to initizalize
-    bool            xz = false,
-		    more_alignments;
+    bool            more_alignments;
     size_t          previous_vcf_pos = 0,
 		    total_alleles,
 		    depth,
 		    depth_sum = 0;
     vcf_stats_t     vcf_stats;
-    char            cmd[CMD_MAX + 1],
-		    vcf_out_filename[PATH_MAX + 1],
+    char            vcf_out_filename[PATH_MAX + 1],
 		    previous_vcf_chromosome[BL_CHROM_MAX_CHARS + 1] = "",
 		    *ext,
 		    *end;
@@ -87,14 +88,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     unsigned int    mapq_min;
     int             ch;
 
-    xz = ((ext = strstr(vcf_filename,".xz")) != NULL) && (ext[3] == '\0');
-    if ( xz )
-    {
-	snprintf(cmd, CMD_MAX, "unxz -c %s", vcf_filename);
-	vcf_in_stream = popen(cmd, "r");
-    }
-    else
-	vcf_in_stream = fopen(vcf_filename, "r");
+    vcf_in_stream = xt_fopen(vcf_filename, "r");
     
     if ( vcf_in_stream == NULL )
     {
@@ -124,14 +118,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     *ext = '\0';
     snprintf(vcf_out_filename, PATH_MAX, "%s-ad.%s", vcf_filename, ext+1);
 
-    if ( xz )
-    {
-	snprintf(cmd, CMD_MAX, "xz -c > %s", vcf_out_filename);
-	vcf_out_stream = popen(cmd, "w");
-    }
-    else
-	vcf_out_stream = fopen(vcf_out_filename, "w");
-    
+    vcf_out_stream = xt_fopen(vcf_out_filename, "w");
     if ( vcf_out_stream == NULL )
     {
 	fprintf(stderr, "%s: Cannot open %s: %s\n", argv[0], vcf_out_filename,
@@ -303,10 +290,8 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     printf("Mean depth = %f\n",
 	    (double)depth_sum / vcf_stats.total_vcf_calls);
 
-    if ( xz )
-	pclose(vcf_in_stream);
-    else
-	fclose(vcf_in_stream);
+    xt_fclose(vcf_in_stream);
+    xt_fclose(vcf_out_stream);
     
     return EX_OK;
 }
