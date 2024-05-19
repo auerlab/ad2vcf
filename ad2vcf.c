@@ -238,7 +238,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
     }
 
 #ifdef DEBUG
-    static bl_sam_t sam_alignment;
+    static bl_sam_t sam_alignment = BL_SAM_INIT;
     if ( sam_alignment.seq == NULL )
 	bl_sam_init(&sam_alignment);
 
@@ -271,7 +271,7 @@ int     ad2vcf(const char *argv[], FILE *sam_stream)
 #ifdef DEBUG
     printf("%" PRId64 " SAM alignments beyond last call.\n",
 	    BL_SAM_BUFF_TRAILING_ALIGNMENTS(&sam_buff));
-    printf("%" PRId64 " trailing SAM alignments discarded (%lld%%)\n",
+    printf("%" PRId64 " trailing SAM alignments discarded (%" PRId64 "%%)\n",
 	    BL_SAM_BUFF_DISCARDED_TRAILING(&sam_buff),
 	    BL_SAM_BUFF_TRAILING_ALIGNMENTS(&sam_buff) == 0 ? 0 :
 	    BL_SAM_BUFF_DISCARDED_TRAILING(&sam_buff) * 100 /
@@ -333,7 +333,7 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
 
     if ( sam_alignment.seq == NULL )
 	bl_sam_init(&sam_alignment);
-    
+
     /*
      *  Check and discard already buffered alignments upstream of the given
      *  VCF call.  They will be useless to subsequent calls as well
@@ -399,6 +399,7 @@ int     skip_upstream_alignments(bl_vcf_t *vcf_call, FILE *sam_stream,
 	if ( bl_sam_buff_add_alignment(sam_buff, &sam_alignment) != BL_SAM_BUFF_OK )
 	    exit(EX_DATAERR);
     }
+    
     return ma;
 }
 
@@ -427,7 +428,7 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
     if ( sam_alignment.seq == NULL )
 	bl_sam_init(&sam_alignment);
 
-    /* Check and discard already buffered alignments */
+    /* Check already buffered alignments */
     for (c = 0; (c < BL_SAM_BUFF_BUFFERED_COUNT(sam_buff)) &&
 		(overlapping = bl_vcf_call_in_alignment(vcf_call,
 		    BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff,c)));
@@ -467,6 +468,20 @@ int     allelic_depth(bl_vcf_t *vcf_call, FILE *sam_stream,
 		if ( bl_sam_buff_add_alignment(sam_buff, &sam_alignment) != BL_SAM_BUFF_OK )
 		    exit(EX_DATAERR);
 		
+#ifdef DEBUG
+		fprintf(stderr, "%s(): After bl_sam_buff_add_alignment()...\n",
+			__FUNCTION__);
+		for (size_t c2 = 0; c2 < BL_SAM_BUFF_BUFFERED_COUNT(sam_buff); ++c2)
+		{
+		    bl_sam_t   *alignment = BL_SAM_BUFF_ALIGNMENTS_AE(sam_buff, c2);
+		    if ( BL_SAM_QUAL(alignment) != NULL )
+		    {
+			fprintf(stderr, "Corrupted alignment at %zu\n", c2);
+			exit(1);
+		    }
+		}
+#endif
+				
 		if ( bl_vcf_call_in_alignment(vcf_call, &sam_alignment) )
 		{
 #ifdef DEBUG
