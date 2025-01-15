@@ -3,7 +3,7 @@
 ## Description
 
 ad2vcf extracts allelic depth info from a SAM stream and adds it to a
-corresponding single-sample VCF file. **It depends on both [biolibc](https://github.com/auerlab/biolibc) and [libxtend](https://github.com/outpaddling/libxtend)**.
+corresponding single-sample VCF file.
 
 SAM input is read via stdin and the VCF input file is taken as a command-line
 argument.  This allows expensive BAM/CRAM decoding to occur in-parallel using
@@ -41,12 +41,6 @@ regions where many alignments overlap multiple variant calls.
 
 ## Building and installing
 
-### prerequisite
-
-* **[biolibc](https://github.com/auerlab/biolibc)**
-* **[libxtend](https://github.com/outpaddling/libxtend)**
-
-
 ad2vcf is intended to build cleanly in any POSIX environment on
 any CPU architecture.  Please
 don't hesitate to open an issue if you encounter problems on any
@@ -60,7 +54,11 @@ The Makefile is designed to be friendly to package managers, such as
 [Debian packages](https://www.debian.org/distrib/packages),
 [FreeBSD ports](https://www.freebsd.org/ports/),
 [MacPorts](https://www.macports.org/), [pkgsrc](https://pkgsrc.org/), etc.
-End users should install using a package manager.  Note that pkgsrc can be used by anyone, on virtually any POSIX operating system, with or without administrator privileges..
+
+End users should install using a package manager, to ensure that
+dependencies are properly managed.
+Note that pkgsrc can be used by anyone, on virtually any POSIX operating
+system, with or without administrator privileges..
 
 I maintain a FreeBSD port and a pkgsrc package, which is sufficient to install
 cleanly on virtually any POSIX platform.  If you would like to see a
@@ -145,6 +143,11 @@ These are maintained by third parties and not directly supported here.
 [BioArchLinux](https://github.com/BioArchLinux/Packages)
 
 ## Instructions for packagers
+
+### Prerequisites
+
+* **[biolibc](https://github.com/auerlab/biolibc)**
+* **[libxtend](https://github.com/outpaddling/libxtend)**
 
 If you would like to add this project to another package manager
 rather than use FreeBSD ports or pkgsrc, basic manual build instructions
