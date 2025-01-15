@@ -3,7 +3,7 @@
 ## Description
 
 ad2vcf extracts allelic depth info from a SAM stream and adds it to a
-corresponding single-sample VCF file.
+corresponding single-sample VCF file. **It depends on both [biolibc](https://github.com/auerlab/biolibc) and [libxtend](https://github.com/outpaddling/libxtend)**.
 
 SAM input is read via stdin and the VCF input file is taken as a command-line
 argument.  This allows expensive BAM/CRAM decoding to occur in-parallel using
@@ -40,6 +40,12 @@ Memory use will spike briefly due to alignment buffering when processing
 regions where many alignments overlap multiple variant calls.
 
 ## Building and installing
+
+### prerequisite
+
+* **[biolibc](https://github.com/auerlab/biolibc)**
+* **[libxtend](https://github.com/outpaddling/libxtend)**
+
 
 ad2vcf is intended to build cleanly in any POSIX environment on
 any CPU architecture.  Please
